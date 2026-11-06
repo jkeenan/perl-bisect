@@ -6,8 +6,8 @@ use warnings;
 # the contents of the Makefile that is written.
 
 my %WriteMakefileArgs = (
-    NAME                => 'Perl::Bisect',
-    VERSION_FROM        => 'lib/Perl/Bisect.pm',
+    NAME                => 'Perl5::Bisect',
+    VERSION_FROM        => 'lib/Perl5/Bisect.pm',
     AUTHOR              => 'James E Keenan (jkeenan@pobox.com)',
     ABSTRACT            => 'Bisection of the Perl core distribution, modularized',
     INSTALLDIRS         => ($] < 5.011 ? 'perl' : 'site'),

@@ -4,6 +4,6 @@
 
 use Test::More tests => 1;
 
-BEGIN { use_ok( 'Perl::Bisect' ); }
+BEGIN { use_ok( 'Perl5::Bisect' ); }
 
 

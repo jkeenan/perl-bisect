@@ -4,5 +4,5 @@ LICENSE
 Todo
 Changes
 Makefile.PL
-lib/Perl/Bisect.pm
+lib/Perl5/Bisect.pm
 t/001_load.t

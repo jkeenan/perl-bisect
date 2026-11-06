@@ -1,4 +1,4 @@
-package Perl::Bisect;
+package Perl5::Bisect;
 use strict;
 
 BEGIN {
