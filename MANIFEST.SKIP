@@ -26,7 +26,6 @@ learn/
 research/
 superseded/
 svndiff/
-^Todo
 ^.cvsignore
 ^init
 ^results
@@ -40,3 +39,4 @@ nytprof.out
 ^.README.pod
 \.appveyor.yml
 .version_info.pl
+.gitignore

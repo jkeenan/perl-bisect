@@ -1,8 +1,12 @@
-MANIFEST
-README
-LICENSE
-Todo
 Changes
-Makefile.PL
 lib/Perl5/Bisect.pm
+LICENSE
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+README
+src/bisect-example.sh
+src/bisect-runner.pl
+src/bisect.pl
 t/001_load.t
+Todo
