@@ -8,8 +8,8 @@ use warnings;
 my %WriteMakefileArgs = (
     NAME                => 'Perl5::Bisect',
     VERSION_FROM        => 'lib/Perl5/Bisect.pm',
+    ABSTRACT_FROM       => 'lib/Perl5/Bisect.pm',
     AUTHOR              => 'James E Keenan (jkeenan@pobox.com)',
-    ABSTRACT            => 'Bisection of the Perl core distribution, modularized',
     INSTALLDIRS         => ($] < 5.011 ? 'perl' : 'site'),
     PREREQ_PM           => {
         'Test::Simple' => 0.44,

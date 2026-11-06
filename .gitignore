@@ -17,6 +17,6 @@ nytprof.out
 /pm_to_blib
 *.o
 *.bs
-List-Compare-*.tar.gz
+Perl5-Bisect-*.tar.gz
 /nytprof/
 *.swp
