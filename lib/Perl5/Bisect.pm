@@ -64,6 +64,10 @@ sub new {
         cpan-config-dir=s
     ));
 
+# Options not yet ready
+#        check-args
+#        check-shebang!
+
     my @XARGV = map { $_ } @ARGV;
     unshift @XARGV, '--help'     if $bad || $h{usage};
     unshift @XARGV, '--validate' if $h{validate};
@@ -113,6 +117,14 @@ As suggested by the names of variables above.
 
 =item * Comment
 
+In the core distribution, F<Porting/bisect.pl> and F<Porting/bisect-runner.pl>
+communicate by unshifting/pushing arguments onto global C<@ARGV> or
+shifting/popping arguments off that array.  Furthermore, the two programs, in
+effect, "share" C<@ARGV> via the clever trick of starting off in F<bisect.pl>
+and then assigning F<bisect-runner.pl> to C<$^X>.  Here in Perl5::Bisect we
+hope to make the code more understandable by undoing some of that cleverness
+and keeping all the state within one program.
+
 C<get_argv_as_string()> reports the same data as C<get_argv()>, only
 stringified with single wordspace separators (C<' '>).
 
@@ -134,6 +146,18 @@ sub get_options {
     my $self = shift;
     return $self->{h};
 }
+
+=pod
+
+Next: Write code for the functionality expressed in these 3 lines from
+bisect.pl, which in turn are provided by bisect-runner.pl:  (BUT WHAT DO THEY
+MEAN?)
+
+system $^X, $runner, '--check-args', '--check-shebang', @ARGV and exit 255;
+exit 255 if $bad;
+exit 0 if $usage;
+
+=cut
 
 1;
 
