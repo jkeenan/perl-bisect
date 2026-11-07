@@ -8,48 +8,53 @@ use File::Spec;
 #use File::Path qw(mkpath);
 use Data::Dump qw(dd pp);
 
-BEGIN {
-    use Exporter ();
-    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
-    $VERSION     = '0.01';
-    @ISA         = qw(Exporter);
-    @EXPORT      = qw();
-    @EXPORT_OK   = qw(
-        preliminary_check
-    );
-    %EXPORT_TAGS = ();
-}
+#BEGIN {
+#    use Exporter ();
+#    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
+#    $VERSION     = '0.01';
+#    @ISA         = qw(Exporter);
+#    @EXPORT      = qw();
+#    @EXPORT_OK   = qw(
+#        preliminary_check
+#    );
+#    %EXPORT_TAGS = ();
+#}
 
 =head1 NAME
 
 Perl5::Bisect - Bisection of the Perl core distribution, modularized
 
-=head1 SUBROUTINES
+=head1 METHODS
 
-We'll eventually transform these subroutines into methods, but for now just
-make them importable on request only.
-
-=head2 C<preliminary_check()>
+=head2 C<new()>
 
 =over 4
 
 =item * Purpose
 
-Do what the first code in F<Porting/bisect.pl> does up until the introduction
-of the "runner" -- but keep track of command-line arguments internally.
+Perl5::Bisect constructor.  Begins processing of command-line switches up to
+the point where the "runner" first appears in F<Porting/bisect.pl>, but does
+so by keeping track of command-line arguments internally rather than
+manipulation of global variable C<@ARGV>.
 
 =item * Arguments
 
+None.
+
 =item * Return Value
 
+Perl5::Bisect object.
+
 =item * Comment
+
+TK
 
 =back
 
 =cut
 
-sub preliminary_check {
-    my $data = {};
+sub new {
+    my $class = shift;
 
     # replacing $need_cpan_config with more accurate variable name
     my $check_for_cpan_config;
@@ -86,13 +91,14 @@ sub preliminary_check {
             $check_for_cpan_config = 1;
         }
     }
-    $data->{h} = \%h;
-    $data->{argv} = \@XARGV;
-    $data->{bad} = $bad;
-    $data->{check_for_cpan_config} = $check_for_cpan_config;
-    return $data;
+    my $data = {
+        h => \%h,
+        argv => \@XARGV,
+        bad => $bad,
+        check_for_cpan_config => $check_for_cpan_config,
+    };
+    return bless $data, $class;
 }
 
 1;
-# The preceding line will help the module return a true value
 

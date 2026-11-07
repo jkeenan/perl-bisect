@@ -9,4 +9,5 @@ src/bisect-example.sh
 src/bisect-runner.pl
 src/bisect.pl
 t/001_load.t
+t/002_preliminary.t
 Todo
