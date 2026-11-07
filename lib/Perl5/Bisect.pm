@@ -8,18 +8,6 @@ use File::Spec;
 #use File::Path qw(mkpath);
 use Data::Dump qw(dd pp);
 
-#BEGIN {
-#    use Exporter ();
-#    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
-#    $VERSION     = '0.01';
-#    @ISA         = qw(Exporter);
-#    @EXPORT      = qw();
-#    @EXPORT_OK   = qw(
-#        preliminary_check
-#    );
-#    %EXPORT_TAGS = ();
-#}
-
 =head1 NAME
 
 Perl5::Bisect - Bisection of the Perl core distribution, modularized
@@ -39,7 +27,10 @@ manipulation of global variable C<@ARGV>.
 
 =item * Arguments
 
-None.
+    my $self = Perl5::Bisect->new();
+
+None, as it simply processes the arguments and switches provided on the
+command-line (C<@ARGV>).
 
 =item * Return Value
 
@@ -98,6 +89,50 @@ sub new {
         check_for_cpan_config => $check_for_cpan_config,
     };
     return bless $data, $class;
+}
+
+=head2 C<get_argv()>, C<get_argv_as_string()>, C<get_options()>
+
+=over 4
+
+=item * Purpose
+
+Three accessors returning the I<current> state of various data in the object.
+
+=item * Arguments
+
+    my $argv_arrayref   = $self->get_argv();
+
+    my $argv_string     = $self->get_argv_as string();
+
+    my options_hashref  = $self->get_options();
+
+=item * Return Value
+
+As suggested by the names of variables above.
+
+=item * Comment
+
+C<get_argv_as_string()> reports the same data as C<get_argv()>, only
+stringified with single wordspace separators (C<' '>).
+
+=back
+
+=cut
+
+sub get_argv {
+    my $self = shift;
+    return $self->{argv};
+}
+
+sub get_argv_as_string {
+    my $self = shift;
+    return join ' ' => @{$self->{argv}};
+}
+
+sub get_options {
+    my $self = shift;
+    return $self->{h};
 }
 
 1;

@@ -40,3 +40,4 @@ nytprof.out
 \.appveyor.yml
 .version_info.pl
 .gitignore
+/src\/runner.pl
