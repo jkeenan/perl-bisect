@@ -2,12 +2,12 @@ Changes
 lib/Perl5/Bisect.pm
 LICENSE
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 MANIFEST.SKIP
 README
 src/bisect-example.sh
 src/bisect-runner.pl
 src/bisect.pl
-t/001_load.t
-t/002_preliminary.t
+t/001-load.t
+t/002-new.t
 Todo
