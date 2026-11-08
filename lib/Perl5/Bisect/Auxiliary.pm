@@ -23,6 +23,7 @@ require Exporter;
     apply_commit
     revert_commit
     skip
+    check_shebang
 |);
 
 =head1 NAME
@@ -341,6 +342,37 @@ sub skip {
     clean();
     warn "skipping - $reason";
     exit 125;
+}
+
+sub check_shebang {
+    my ($file, $run_with_our_perl) = @_;
+    return unless -e $file;
+    my $fh = open_or_die($file);
+    my $line = <$fh>;
+    return if $line =~ $run_with_our_perl;
+    if (!-x $file) {
+        die_255("$file is not executable.
+system($file, ...) is always going to fail.
+
+Bailing out");
+    }
+    return unless $line =~ m{\A#!(/\S+/perl\S*)\s};
+    die_255("$file will always be run by $1
+It won't be tested by the ./perl we build.
+If you intended to run it with that perl binary, please change your
+test case to
+
+    $1 @ARGV
+
+If you intended to test it with the ./perl we build, please change your
+test case to
+
+    ./perl -Ilib @ARGV
+
+[You may also need to add -- before ./perl to prevent that -Ilib as being
+parsed as an argument to bisect.pl]
+
+Bailing out");
 }
 
 1;
