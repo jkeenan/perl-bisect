@@ -9,6 +9,9 @@ require Exporter;
 @EXPORT_OK = ( qw|
     croak_255
     die_255
+    open_or_die
+    close_or_die
+    system_or_die
 |);
 
 =head1 NAME
@@ -31,6 +34,26 @@ sub croak_255 {
 
 sub die_255 {
     croak_255(@_);
+}
+
+sub open_or_die {
+    my $file = shift;
+    my $mode = @_ ? shift : '<';
+    open my $fh, $mode, $file or croak_255("Can't open $file: $!");
+    ${*$fh{SCALAR}} = $file;
+    return $fh;
+}
+
+sub close_or_die {
+    my $fh = shift;
+    return if close $fh;
+    croak_255("Can't close: $!") unless ref $fh eq 'GLOB';
+    croak_255("Can't close ${*$fh{SCALAR}}: $!");
+}
+
+sub system_or_die {
+    my $command = '</dev/null ' . shift;
+    system($command) and croak_255("'$command' failed, \$!=$!, \$?=$?");
 }
 
 1;

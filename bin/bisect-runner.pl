@@ -10,6 +10,9 @@ use lib ("$ENV{HOME}/gitwork/noncore/perl-bisect/lib");
 use Perl5::Bisect::Auxiliary qw(
     croak_255
     die_255
+    open_or_die
+    close_or_die
+    system_or_die
 );
 
 my @targets
@@ -1371,25 +1374,25 @@ if (exists $options{make}) {
 # which updated to MakeMaker 3.7, which changed from using a hard coded ld
 # in the Makefile to $(LD). On x86_64 Linux the "linker" is gcc.
 
-sub open_or_die {
-    my $file = shift;
-    my $mode = @_ ? shift : '<';
-    open my $fh, $mode, $file or croak_255("Can't open $file: $!");
-    ${*$fh{SCALAR}} = $file;
-    return $fh;
-}
-
-sub close_or_die {
-    my $fh = shift;
-    return if close $fh;
-    croak_255("Can't close: $!") unless ref $fh eq 'GLOB';
-    croak_255("Can't close ${*$fh{SCALAR}}: $!");
-}
-
-sub system_or_die {
-    my $command = '</dev/null ' . shift;
-    system($command) and croak_255("'$command' failed, \$!=$!, \$?=$?");
-}
+#sub open_or_die {
+#    my $file = shift;
+#    my $mode = @_ ? shift : '<';
+#    open my $fh, $mode, $file or croak_255("Can't open $file: $!");
+#    ${*$fh{SCALAR}} = $file;
+#    return $fh;
+#}
+#
+#sub close_or_die {
+#    my $fh = shift;
+#    return if close $fh;
+#    croak_255("Can't close: $!") unless ref $fh eq 'GLOB';
+#    croak_255("Can't close ${*$fh{SCALAR}}: $!");
+#}
+#
+#sub system_or_die {
+#    my $command = '</dev/null ' . shift;
+#    system($command) and croak_255("'$command' failed, \$!=$!, \$?=$?");
+#}
 
 sub run_with_options {
     my $options = shift;
