@@ -1,3 +1,5 @@
+bin/bisect-runner.pl
+bin/bisect.pl
 Changes
 lib/Perl5/Bisect.pm
 LICENSE
@@ -8,7 +10,6 @@ README
 src/bisect-example.sh
 src/bisect-runner.pl
 src/bisect.pl
-src/runner.pl
 t/001-load.t
 t/002-new.t
 Todo
