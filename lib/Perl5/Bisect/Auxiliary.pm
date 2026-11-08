@@ -22,6 +22,7 @@ require Exporter;
     patch_from_commit
     apply_commit
     revert_commit
+    skip
 |);
 
 =head1 NAME
@@ -333,6 +334,13 @@ sub revert_commit {
     my ($commit, @files) = @_;
     my $patch = patch_from_commit('revert', $commit, @files);
     apply_patch($patch, "revert $commit", @files ? " for @files" : '');
+}
+
+sub skip {
+    my $reason = shift;
+    clean();
+    warn "skipping - $reason";
+    exit 125;
 }
 
 1;

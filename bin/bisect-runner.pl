@@ -23,6 +23,7 @@ use Perl5::Bisect::Auxiliary qw(
     patch_from_commit
     apply_commit
     revert_commit
+    skip
 );
 
 my @targets
@@ -1390,11 +1391,71 @@ if (exists $options{make}) {
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
 
-sub checkout_file {
-    my ($file, $commit) = @_;
-    $commit ||= $options{gold} || 'blead';
-    system "git show $commit:$file > $file </dev/null"
-        and die_255("Could not extract $file at revision $commit");
+#sub checkout_file {
+#    my ($file, $commit) = @_;
+#    $commit ||= $options{gold} || 'blead';
+#    system "git show $commit:$file > $file </dev/null"
+#        and die_255("Could not extract $file at revision $commit");
+#}
+#
+#sub check_shebang {
+#    my $file = shift;
+#    return unless -e $file;
+#    my $fh = open_or_die($file);
+#    my $line = <$fh>;
+#    return if $line =~ $run_with_our_perl;
+#    if (!-x $file) {
+#        die_255("$file is not executable.
+#system($file, ...) is always going to fail.
+#
+#Bailing out");
+#    }
+#    return unless $line =~ m{\A#!(/\S+/perl\S*)\s};
+#    die_255("$file will always be run by $1
+#It won't be tested by the ./perl we build.
+#If you intended to run it with that perl binary, please change your
+#test case to
+#
+#    $1 @ARGV
+#
+#If you intended to test it with the ./perl we build, please change your
+#test case to
+#
+#    ./perl -Ilib @ARGV
+#
+#[You may also need to add -- before ./perl to prevent that -Ilib as being
+#parsed as an argument to bisect.pl]
+#
+#Bailing out");
+#}
+#
+#sub clean {
+#    if ($options{clean}) {
+#        # Needed, because files that are build products in this checked out
+#        # version might be in git in the next desired version.
+#        system 'git clean -qdxf </dev/null';
+#        # Needed, because at some revisions the build alters checked out files.
+#        # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
+#        system 'git reset --hard HEAD </dev/null';
+#    }
+#}
+#
+#sub skip {
+#    my $reason = shift;
+#    clean();
+#    warn "skipping - $reason";
+#    exit 125;
+#}
+
+sub clean {
+    if ($options{clean}) {
+        # Needed, because files that are build products in this checked out
+        # version might be in git in the next desired version.
+        system 'git clean -qdxf </dev/null';
+        # Needed, because at some revisions the build alters checked out files.
+        # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
+        system 'git reset --hard HEAD </dev/null';
+    }
 }
 
 sub check_shebang {
@@ -1428,22 +1489,11 @@ parsed as an argument to bisect.pl]
 Bailing out");
 }
 
-sub clean {
-    if ($options{clean}) {
-        # Needed, because files that are build products in this checked out
-        # version might be in git in the next desired version.
-        system 'git clean -qdxf </dev/null';
-        # Needed, because at some revisions the build alters checked out files.
-        # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
-        system 'git reset --hard HEAD </dev/null';
-    }
-}
-
-sub skip {
-    my $reason = shift;
-    clean();
-    warn "skipping - $reason";
-    exit 125;
+sub checkout_file {
+    my ($file, $commit) = @_;
+    $commit ||= $options{gold} || 'blead';
+    system "git show $commit:$file > $file </dev/null"
+        and die_255("Could not extract $file at revision $commit");
 }
 
 sub report_and_exit {
