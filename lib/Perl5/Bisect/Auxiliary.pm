@@ -17,6 +17,11 @@ require Exporter;
     edit_file
     process_hunk
     ud2cd
+    placate_patch_prog
+    apply_patch
+    patch_from_commit
+    apply_commit
+    revert_commit
 |);
 
 =head1 NAME
@@ -255,6 +260,81 @@ sub ud2cd {
         }
     }
 }
+
+{
+    # FIXME: Why is this defined outside the subroutine where it's used?
+    my $use_context;
+
+    sub placate_patch_prog {
+        my $patch = shift;
+
+        if (!defined $use_context) {
+            my $version = `patch -v 2>&1`;
+            die_255("Can't run `patch -v`, \$?=$?, bailing out")
+                unless defined $version;
+            if ($version =~ /Free Software Foundation/) {
+                $use_context = 0;
+            } elsif ($version =~ /Header: patch\.c,v.*\blwall\b/) {
+                # The system patch is older than Linux, and probably older than
+                # Windows NT.
+                $use_context = 1;
+            } elsif ($version =~ /Header: patch\.c,v.*\babhinav\b/) {
+                # Thank you HP. No, we have no idea *which* version this is:
+                # $Header: patch.c,v 76.1.1.2.1.3 2001/12/03 12:24:52 abhinav Exp $
+                $use_context = 1;
+            } else {
+                # Don't know.
+                $use_context = 0;
+            }
+        }
+
+        return $use_context ? ud2cd($patch) : $patch;
+    }
+}
+
+sub apply_patch {
+    my ($patch, $what, $files) = @_;
+    $what = 'patch' unless defined $what;
+    unless (defined $files) {
+        # Handle context diffs (*** ---) and unified diffs (+++ ---)
+        # and ignore trailing "garbage" after the filenames
+        $patch =~ m!^[-*]{3} [ab]/(\S+)[^\n]*\n[-+]{3} [ba]/\1!sm;
+        $files = " $1";
+    }
+    my $patch_to_use = placate_patch_prog($patch);
+    open my $fh, '|-', 'patch', '-p1' or die_255("Can't run patch: $!");
+    print $fh $patch_to_use;
+    return if close $fh;
+    print STDERR "Patch is <<'EOPATCH'\n${patch}EOPATCH\n";
+    print STDERR "\nConverted to a context diff <<'EOCONTEXT'\n${patch_to_use}EOCONTEXT\n"
+        if $patch_to_use ne $patch;
+    die_255("Can't $what$files: $?, $!");
+}
+
+sub patch_from_commit {
+    my ($revert, $commit, @files) = @_;
+    my $flags = $revert ? '-R ' : '';
+    my $patch = `git show --src-prefix=a/ --dst-prefix=b/ $flags$commit @files`;
+    if (!defined $patch) {
+        my $thing = $revert ? 'revert commit' : 'commit';
+        die_255("Can't get $thing $commit for @files: $?") if @files;
+        die_255("Can't get $thing $commit: $?");
+    }
+    return $patch;
+}
+
+sub apply_commit {
+    my ($commit, @files) = @_;
+    my $patch = patch_from_commit(undef, $commit, @files);
+    apply_patch($patch, "patch $commit", @files ? " for @files" : '');
+}
+
+sub revert_commit {
+    my ($commit, @files) = @_;
+    my $patch = patch_from_commit('revert', $commit, @files);
+    apply_patch($patch, "revert $commit", @files ? " for @files" : '');
+}
+
 1;
 
 
