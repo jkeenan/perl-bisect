@@ -182,7 +182,7 @@ if ($options{module} && $options{'test-module'}) {
     pod2usage(exitval => 255, verbose => 1)
 }
 
-check_shebang($ARGV[0])
+check_shebang($ARGV[0], $run_with_our_perl)
     if $options{'check-shebang'} && @ARGV && !$options{match};
 
 exit 0 if $options{'check-args'};
@@ -1392,6 +1392,7 @@ if (exists $options{make}) {
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
 
+# NOT FULLY ENCAPSULATED YET: %options
 sub clean {
     if ($options{clean}) {
         # Needed, because files that are build products in this checked out
@@ -1404,7 +1405,7 @@ sub clean {
 }
 
 sub check_shebang {
-    my $file = shift;
+    my ($file, $run_with_our_perl) = @_;
     return unless -e $file;
     my $fh = open_or_die($file);
     my $line = <$fh>;
@@ -1434,6 +1435,7 @@ parsed as an argument to bisect.pl]
 Bailing out");
 }
 
+# NOT FULLY ENCAPSULATED YET: %options
 sub checkout_file {
     my ($file, $commit) = @_;
     $commit ||= $options{gold} || 'blead';
@@ -1441,6 +1443,7 @@ sub checkout_file {
         and die_255("Could not extract $file at revision $commit");
 }
 
+# CANNOT BE MOVED YET; dependency on clean()
 sub report_and_exit {
     my ($good, $pass, $fail, $desc) = @_;
 
@@ -1456,6 +1459,7 @@ sub report_and_exit {
     exit($got eq 'bad');
 }
 
+# CANNOT BE MOVED YET; indirect dependency on clean()
 sub run_report_and_exit {
     my $ret = run_with_options({setprgp => $options{setpgrp},
                                 timeout => $options{timeout},
@@ -1464,6 +1468,7 @@ sub run_report_and_exit {
     report_and_exit(!$ret, 'zero exit from', 'non-zero exit from', "@_");
 }
 
+# NOT FULLY ENCAPSULATED YET: $match
 sub match_and_exit {
     my ($target, @globs) = @_;
     my $matches = 0;
