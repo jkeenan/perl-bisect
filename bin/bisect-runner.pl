@@ -6,6 +6,11 @@ use Pod::Usage;
 use Config;
 use File::Temp qw(tempdir);
 use File::Spec;
+use lib ("$ENV{HOME}/gitwork/noncore/perl-bisect/lib");
+use Perl5::Bisect::Auxiliary qw(
+    croak_255
+    die_255
+);
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
@@ -1318,22 +1323,6 @@ L<GH issue 23435|https://github.com/Perl/perl5/issues/23435#issuecomment-3067034
 =back
 
 =cut
-
-# Ensure we always exit with 255, to cause git bisect to abort.
-sub croak_255 {
-    my $message = join '', @_;
-    if ($message =~ /\n\z/) {
-        print STDERR $message;
-    } else {
-        my (undef, $file, $line) = caller 1;
-        print STDERR "@_ at $file line $line\n";
-    }
-    exit 255;
-}
-
-sub die_255 {
-    croak_255(@_);
-}
 
 die_255("$0: Can't build $target")
     if defined $target && !grep {@targets} $target;
