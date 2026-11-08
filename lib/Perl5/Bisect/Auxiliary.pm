@@ -15,6 +15,8 @@ require Exporter;
     run_with_options
     extract_from_file
     edit_file
+    process_hunk
+    ud2cd
 |);
 
 =head1 NAME
@@ -152,6 +154,107 @@ sub edit_file {
     close_or_die($fh);
 }
 
+sub process_hunk {
+    my ($from_out, $to_out, $has_from, $has_to, $delete, $add) = @_;
+    ++$$has_from if $delete;
+    ++$$has_to if $add;
+
+    if ($delete && $add) {
+        $$from_out .= "! $_\n" foreach @$delete;
+        $$to_out .= "! $_\n" foreach @$add;
+    } elsif ($delete) {
+        $$from_out .= "- $_\n" foreach @$delete;
+    } elsif ($add) {
+         $$to_out .= "+ $_\n" foreach @$add;
+    }
+}
+
+# This isn't quite general purpose, as it can't cope with
+# '\ No newline at end of file'
+sub ud2cd {
+    my $diff_in = shift;
+    my $diff_out = '';
+
+    # Stuff before the diff
+    while ($diff_in =~ s/\A(?!\*\*\* )(?!--- )([^\n]*\n?)//ms && length $1) {
+        $diff_out .= $1;
+    }
+
+    if (!length $diff_in) {
+        die_255("That didn't seem to be a diff");
+    }
+
+    if ($diff_in =~ /\A\*\*\* /ms) {
+        warn "Seems to be a context diff already\n";
+        return $diff_out . $diff_in;
+    }
+
+    # Loop for files
+ FILE: while (1) {
+        if ($diff_in =~ s/\A((?:diff |index )[^\n]+\n)//ms) {
+            $diff_out .= $1;
+            next;
+        }
+        if ($diff_in !~ /\A--- /ms) {
+            # Stuff after the diff;
+            return $diff_out . $diff_in;
+        }
+        $diff_in =~ s/\A([^\n]+\n?)//ms;
+        my $line = $1;
+        die_255("Can't parse '$line'") unless $line =~ s/\A--- /*** /ms;
+        $diff_out .= $line;
+        $diff_in =~ s/\A([^\n]+\n?)//ms;
+        $line = $1;
+        die_255("Can't parse '$line'") unless $line =~ s/\A\+\+\+ /--- /ms;
+        $diff_out .= $line;
+
+        # Loop for hunks
+        while (1) {
+            next FILE
+                unless $diff_in =~ s/\A\@\@ (-([0-9]+),([0-9]+) \+([0-9]+),([0-9]+)) \@\@[^\n]*\n?//;
+            my ($hunk, $from_start, $from_count, $to_start, $to_count)
+                = ($1, $2, $3, $4, $5);
+            my $from_end = $from_start + $from_count - 1;
+            my $to_end = $to_start + $to_count - 1;
+            my ($from_out, $to_out, $has_from, $has_to, $add, $delete);
+            while (length $diff_in && ($from_count || $to_count)) {
+                die_255("Confused in $hunk")
+                    unless $diff_in =~ s/\A([^\n]*)\n//ms;
+                my $line = $1;
+                $line = ' ' unless length $line;
+                if ($line =~ /^ .*/) {
+                    process_hunk(\$from_out, \$to_out, \$has_from, \$has_to,
+                                 $delete, $add);
+                    undef $delete;
+                    undef $add;
+                    $from_out .= " $line\n";
+                    $to_out .= " $line\n";
+                    --$from_count;
+                    --$to_count;
+                } elsif ($line =~ /^-(.*)/) {
+                    push @$delete, $1;
+                    --$from_count;
+                } elsif ($line =~ /^\+(.*)/) {
+                    push @$add, $1;
+                    --$to_count;
+                } else {
+                    die_255("Can't parse '$line' as part of hunk $hunk");
+                }
+            }
+            process_hunk(\$from_out, \$to_out, \$has_from, \$has_to,
+                         $delete, $add);
+            die_255("No lines in hunk $hunk")
+                unless length $from_out || length $to_out;
+            die_255("No changes in hunk $hunk")
+                unless $has_from || $has_to;
+            $diff_out .= "***************\n";
+            $diff_out .= "*** $from_start,$from_end ****\n";
+            $diff_out .= $from_out if $has_from;
+            $diff_out .= "--- $to_start,$to_end ----\n";
+            $diff_out .= $to_out if $has_to;
+        }
+    }
+}
 1;
 
 
