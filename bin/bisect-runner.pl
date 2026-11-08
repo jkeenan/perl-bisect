@@ -1405,12 +1405,11 @@ sub clean {
     }
 }
 
-# NOT FULLY ENCAPSULATED YET: %options
 sub checkout_file {
-    my ($file, $commit) = @_;
-    $commit ||= $options{gold} || 'blead';
-    system "git show $commit:$file > $file </dev/null"
-        and die_255("Could not extract $file at revision $commit");
+    my $args = shift;
+    $args->{commit} ||= $args->{options}{gold} || 'blead';
+    system "git show $args->{commit}:$args->{file} > $args->{file} </dev/null"
+        and die_255("Could not extract $args->{file} at revision $args->{commit}");
 }
 
 # CANNOT BE MOVED YET; dependency on clean()
@@ -2725,7 +2724,12 @@ sub patch_hints {
         # exception, instead of treating previous versions' behaviour explicitly
         # and changing the default to cater for the current behaviour. (As
         # strangely, future versions inherit the current behaviour.)
-        checkout_file('hints/freebsd.sh');
+        #checkout_file('hints/freebsd.sh');
+        checkout_file({
+            file => 'hints/freebsd.sh',
+            commit => '',
+            options => \%options,
+        });
     } elsif ($^O eq 'darwin') {
         if ($major < 8) {
             # We can't build on darwin without some of the data in the hints
@@ -2737,7 +2741,12 @@ sub patch_hints {
             # monotonic bug fixing.
             my $faking_it;
             if (!-f 'hints/darwin.sh') {
-                checkout_file('hints/darwin.sh', 'f556e5b971932902');
+                #checkout_file('hints/darwin.sh', 'f556e5b971932902');
+                checkout_file({
+                    file => 'hints/darwin.sh',
+                    commit => 'f556e5b971932902',
+                    options => \%options,
+                });
                 ++$faking_it;
             }
 
@@ -2872,8 +2881,12 @@ EOC
         }
     } elsif ($^O eq 'openbsd') {
         if ($major < 8) {
-            checkout_file('hints/openbsd.sh', '43051805d53a3e4c')
-                unless -f 'hints/openbsd.sh';
+            #checkout_file('hints/openbsd.sh', '43051805d53a3e4c')
+            checkout_file({
+                file => 'hints/openbsd.sh',
+                commit => '43051805d53a3e4c',
+                options => \%options,
+            }) unless -f 'hints/openbsd.sh';
             my $which = extract_from_file('hints/openbsd.sh',
                                           qr/# from (2\.8|3\.1) onwards/,
                                           '');
@@ -3344,8 +3357,12 @@ EOT
     # It's the same version in v5.26.0 to v5.34.0
     # Post v5.34.0, commit 8d469d0ecbd06a99 completely changes how makedepend.SH
     # interacts with Makefile.SH, meaning that it's not a drop-in upgrade.
-    checkout_file('makedepend.SH', 'v5.34.0')
-        if $major < 26;
+    #checkout_file('makedepend.SH', 'v5.34.0')
+    checkout_file({
+        file => 'makedepend.SH',
+        commit => 'v5.34.0',
+        options => \%options,
+    }) if $major < 26;
 
     if ($major < 4 && -f 'config.sh'
         && !extract_from_file('config.sh', qr/^trnl=/)) {
@@ -4247,7 +4264,12 @@ sub patch_ext {
     }
 
     if ($major < 8 && $^O eq 'darwin' && !-f 'ext/DynaLoader/dl_dyld.xs') {
-        checkout_file('ext/DynaLoader/dl_dyld.xs', 'f556e5b971932902');
+        #checkout_file('ext/DynaLoader/dl_dyld.xs', 'f556e5b971932902');
+        checkout_file({
+            file => 'ext/DynaLoader/dl_dyld.xs',
+            commit => 'f556e5b971932902',
+            options => \%options,
+        });
         apply_patch(<<'EOPATCH');
 diff -u a/ext/DynaLoader/dl_dyld.xs~ a/ext/DynaLoader/dl_dyld.xs
 --- a/ext/DynaLoader/dl_dyld.xs	2011-10-11 21:41:27.000000000 +0100
