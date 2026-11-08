@@ -1367,6 +1367,7 @@ unless (exists $defines{cc}) {
     # FIXME - really it should be replaced with a proper test of
     # "can we build something?" and a helpful diagnostic if we can't.
     # For now, simply move it here.
+    no warnings 'exec';
     $defines{cc} = (`ccache -V`, $?) ? 'cc' : 'ccache cc';
 }
 
