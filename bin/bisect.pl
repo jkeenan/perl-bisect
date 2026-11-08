@@ -9,9 +9,37 @@ Documentation for this is in bisect-runner.pl
 
 # The default, auto_abbrev will treat -e as an abbreviation of --end
 # Which isn't what we want.
+use 5.14.0;
 use Getopt::Long qw(:config pass_through no_auto_abbrev);
 use File::Spec;
 use File::Path qw(mkpath);
+use Cwd;
+use Perl5::Bisect;
+
+# We start by making sure we have a checkout of a (Perl 5) git repository in
+# an envvar SECONDARY_CHECKOUT_DIR.  We make sure that we can move to the
+# repository directory and prepare it for operations.
+
+my $cwd = cwd();
+
+my $checkout_dir = $ENV{SECONDARY_CHECKOUT_DIR};
+die "Unable to locate checkout of Perl 5" unless (
+    -d $checkout_dir &&
+    -d "$checkout_dir/.git"
+);
+chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
+system(qq|git clean -dfxq|)
+    and die "Unable to do git-clean on $checkout_dir:$!";
+
+# We return to our starting point.
+
+chdir $cwd or die "Unable to change back to $cwd: $!";
+
+my $bisector = "$cwd/$0";
+my $brunner = "$cwd/bin/bisect-runner.pl";
+die "Can't find bisect runner $brunner" unless -f $brunner;
+say "bisect.pl:        $bisector";
+say "bisect-runner.pl: $brunner";
 
 my ($start, $end, $validate, $usage, $bad, $jobs, $make, $gold,
     $module, $with_module);
@@ -41,12 +69,12 @@ if ($module || $with_module) {
   }
 }
 
-my $runner = $0;
-$runner =~ s/bisect\.pl/bisect-runner.pl/;
+# We return to SECONDARY_CHECKOUT_DIR and continue preparations.
+# We will stay here for the balance of this program.
 
-die "Can't find bisect runner $runner" unless -f $runner;
+chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
 
-system $^X, $runner, '--check-args', '--check-shebang', @ARGV and exit 255;
+system $^X, $brunner, '--check-args', '--check-shebang', @ARGV and exit 255;
 exit 255 if $bad;
 exit 0 if $usage;
 
@@ -140,15 +168,17 @@ foreach ($start, $end) {
 {
     my $modified = my @modified = `git ls-files --modified --deleted --others`;
 
-    my ($dev0, $ino0) = stat $0;
-    die "Can't stat $0: $!" unless defined $ino0;
+    my ($dev0, $ino0) = stat $bisector;
+    die "Can't stat $bisector: $!" unless defined $ino0;
+    # FIXME: Line below refers to Porting directory, with which we no longer
+    # want to bother.
     my ($dev1, $ino1) = stat 'Porting/bisect.pl';
 
     my $inplace = defined $dev1 && $dev0 == $dev1 && $ino0 == $ino1;
 
     if ($modified) {
         my $final = $inplace
-            ? "Can't run a bisect using a dirty directory containing $runner"
+            ? "Can't run a bisect using a dirty directory containing $brunner"
             : "You can use 'git clean -Xdf' to cleanup the ignored files";
 
         die "This checkout is not clean, found file(s):\n",
@@ -166,19 +196,19 @@ foreach ($start, $end) {
         my ($to, $toname) = File::Temp::tempfile();
         die "Can't create tempfile"
             unless $to;
-        open my $from, '<', $runner
-            or die "Can't open '$runner': $!";
+        open my $from, '<', $brunner
+            or die "Can't open '$brunner': $!";
         local $/;
         print {$to} <$from>
-            or die "Can't copy from '$runner' to '$toname': $!";
+            or die "Can't copy from '$brunner' to '$toname': $!";
         close $from
-            or die "Can't close '$runner': $!";
+            or die "Can't close '$brunner': $!";
         close $to
             or die "Can't close '$toname': $!";
         chmod 0500, $toname
             or die "Can't chmod 0500, '$toname': $!";
-        $runner = $toname;
-        system $^X, $runner, '--check-args', @ARGV
+        $brunner = $toname;
+        system $^X, $brunner, '--check-args', @ARGV
             and die "Can't run inplace for some reason. :-(";
     }
 }
@@ -195,7 +225,7 @@ sub validate {
     }
     print "Testing $commit...\n";
     system "git checkout $commit </dev/null" and die;
-    my $ret = system $^X, $runner, '--no-clean', @ARGV;
+    my $ret = system $^X, $brunner, '--no-clean', @ARGV;
     die "Runner returned $ret, not 0 for revision $commit" if $ret;
     system 'git clean -dxf </dev/null' and die;
     system 'git reset --hard HEAD </dev/null' and die;
@@ -229,14 +259,14 @@ if ($git_version ge v1.6.6) {
 
 # Sanity check the first and last revisions:
 system "git checkout $end" and die;
-my $ret = system $^X, $runner, @ARGV;
+my $ret = system $^X, $brunner, @ARGV;
 die "Runner returned $ret for end revision" unless $ret;
 die "Runner returned $ret for end revision, which is a skip"
     if $ret == 125 * 256;
 
 if (defined $start) {
     system "git checkout $start" and die;
-    my $ret = system $^X, $runner, @ARGV;
+    my $ret = system $^X, $brunner, @ARGV;
     die "Runner returned $ret, not 0 for start revision" if $ret;
 } else {
     # Try to find the earliest version for which the test works
@@ -250,7 +280,7 @@ if (defined $start) {
             next;
         }
         system "git checkout $try" and die;
-        my $ret = system $^X, $runner, @ARGV;
+        my $ret = system $^X, $brunner, @ARGV;
         if (!$ret) {
             $start = $try;
             last;
@@ -266,7 +296,7 @@ system "git bisect good $start" and die;
 system "git bisect bad $end" and die;
 
 # And now get git bisect to do the hard work:
-system 'git', 'bisect', 'run', $^X, $runner, @ARGV and die;
+system 'git', 'bisect', 'run', $^X, $brunner, @ARGV and die;
 
 END {
     my $end_time = time;
