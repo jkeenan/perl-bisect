@@ -27,6 +27,7 @@ require Exporter;
     checkout_file
     match_and_exit
     report_and_exit
+    run_report_and_exit
 |);
 
 =head1 NAME
@@ -459,6 +460,19 @@ sub report_and_exit {
     exit($got eq 'bad');
 }
 
+sub run_report_and_exit {
+    my $options = shift;
+    my $ret = run_with_options({setprgp => $options->{setpgrp},
+                                timeout => $options->{timeout},
+                               }, @_);
+    $ret &= 0xff if $options->{crash};
+    report_and_exit( {
+        good => !$ret,
+        pass => 'zero exit from',
+        fail => 'non-zero exit from',
+        description => "@_",
+        options => $options,
+    } );
+}
+
 1;
-
-

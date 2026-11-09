@@ -28,6 +28,7 @@ use Perl5::Bisect::Auxiliary qw(
     checkout_file
     match_and_exit
     report_and_exit
+    run_report_and_exit
 );
 
 my @targets
@@ -1395,23 +1396,6 @@ if (exists $options{make}) {
 # it's hard enough to get git diff to output context diffs, let alone git show,
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
-
-# CANNOT BE MOVED YET; reliance on %options and report_and_exit() breaks encapsulation
-sub run_report_and_exit {
-    my $options = shift;
-    my $ret = run_with_options({setprgp => $options->{setpgrp},
-                                timeout => $options->{timeout},
-                               }, @_);
-    $ret &= 0xff if $options->{crash};
-    report_and_exit( {
-        good => !$ret,
-        pass => 'zero exit from',
-        fail => 'non-zero exit from',
-        description => "@_",
-        #options => \%options,
-        options => $options,
-    } );
-}
 
 # Not going to assume that system perl is yet new enough to have autodie
 system_or_die('git clean -dxf');
