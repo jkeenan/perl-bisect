@@ -26,6 +26,7 @@ require Exporter;
     check_shebang
     checkout_file
     match_and_exit
+    report_and_exit
 |);
 
 =head1 NAME
@@ -423,6 +424,39 @@ sub match_and_exit {
     report_and_exit($matches,
                     $matches == 1 ? '1 match for' : "$matches matches for",
                     'no matches for', $match);
+}
+
+# report_and_exit( {
+#   good => '',
+#   pass => '',
+#   fail => '',
+#   description => '',
+#   options => \%options,
+# } );
+
+sub report_and_exit {
+    my $args = shift;
+
+    if ($args->{options}{clean}) {
+        # Needed, because files that are build products in this checked out
+        # version might be in git in the next desired version.
+        system 'git clean -qdxf </dev/null';
+        # Needed, because at some revisions the build alters checked out files.
+        # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
+        system 'git reset --hard HEAD </dev/null';
+    }
+
+    my $got = ($args->{options}{'expect-pass'}
+        ? $args->{good} : !$args->{good})
+        ? 'good' : 'bad';
+    if ($args->{good}) {
+        print "$got - $args->{pass} $args->{description}\n";
+    }
+    else {
+        print "$got - $args->{fail} $args->{description}\n";
+    }
+
+    exit($got eq 'bad');
 }
 
 1;

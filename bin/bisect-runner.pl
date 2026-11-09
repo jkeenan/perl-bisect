@@ -27,6 +27,7 @@ use Perl5::Bisect::Auxiliary qw(
     check_shebang
     checkout_file
     match_and_exit
+    report_and_exit
 );
 
 my @targets
@@ -1394,39 +1395,6 @@ if (exists $options{make}) {
 # it's hard enough to get git diff to output context diffs, let alone git show,
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
-
-# report_and_exit( {
-#   good => '',
-#   pass => '',
-#   fail => '',
-#   description => '',
-#   options => \%options,
-# } );
-
-sub report_and_exit {
-    my $args = shift;
-
-    if ($args->{options}{clean}) {
-        # Needed, because files that are build products in this checked out
-        # version might be in git in the next desired version.
-        system 'git clean -qdxf </dev/null';
-        # Needed, because at some revisions the build alters checked out files.
-        # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
-        system 'git reset --hard HEAD </dev/null';
-    }
-
-    my $got = ($args->{options}{'expect-pass'}
-        ? $args->{good} : !$args->{good})
-        ? 'good' : 'bad';
-    if ($args->{good}) {
-        print "$got - $args->{pass} $args->{description}\n";
-    }
-    else {
-        print "$got - $args->{fail} $args->{description}\n";
-    }
-
-    exit($got eq 'bad');
-}
 
 # CANNOT BE MOVED YET; reliance on %options and report_and_exit() breaks encapsulation
 sub run_report_and_exit {
