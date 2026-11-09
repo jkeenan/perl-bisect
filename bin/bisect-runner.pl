@@ -1395,11 +1395,18 @@ if (exists $options{make}) {
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
 
-# CANNOT BE MOVED YET; reliance on %options breaks encapsulation
-sub report_and_exit {
-    my ($good, $pass, $fail, $desc) = @_;
+# report_and_exit( {
+#   good => '',
+#   pass => '',
+#   fail => '',
+#   description => '',
+#   options => \%options,
+# } );
 
-    if ($options{clean}) {
+sub report_and_exit {
+    my $args = shift;
+
+    if ($args->{options}{clean}) {
         # Needed, because files that are build products in this checked out
         # version might be in git in the next desired version.
         system 'git clean -qdxf </dev/null';
@@ -1408,11 +1415,14 @@ sub report_and_exit {
         system 'git reset --hard HEAD </dev/null';
     }
 
-    my $got = ($options{'expect-pass'} ? $good : !$good) ? 'good' : 'bad';
-    if ($good) {
-        print "$got - $pass $desc\n";
-    } else {
-        print "$got - $fail $desc\n";
+    my $got = ($args->{options}{'expect-pass'}
+        ? $args->{good} : !$args->{good})
+        ? 'good' : 'bad';
+    if ($args->{good}) {
+        print "$got - $args->{pass} $args->{description}\n";
+    }
+    else {
+        print "$got - $args->{fail} $args->{description}\n";
     }
 
     exit($got eq 'bad');
@@ -1424,7 +1434,13 @@ sub run_report_and_exit {
                                 timeout => $options{timeout},
                                }, @_);
     $ret &= 0xff if $options{crash};
-    report_and_exit(!$ret, 'zero exit from', 'non-zero exit from', "@_");
+    report_and_exit( {
+        good => !$ret,
+        pass => 'zero exit from',
+        fail => 'non-zero exit from',
+        description => "@_",
+        options => \%options,
+    } );
 }
 
 # Not going to assume that system perl is yet new enough to have autodie
@@ -1584,15 +1600,26 @@ if (-f 'config.sh') {
 
 if ($target =~ /config\.s?h/) {
     match_and_exit(undef, [@ARGV], $match) if $match && -f $target;
-    report_and_exit(-f $target, 'could build', 'could not build', $target)
-        if $options{'test-build'};
+    report_and_exit( {
+        good => -f $target,
+        pass => 'could build',
+        fail => 'could not build',
+        description => $target,
+        options => \%options,
+    } ) if $options{'test-build'};
 
     skip("could not build $target") unless -f $target;
 
     run_report_and_exit(@ARGV);
-} elsif (!-f 'config.sh') {
-    report_and_exit(undef, 'PLEASE REPORT BUG', 'could not build', 'config.sh')
-        if $options{'test-build'};
+}
+elsif (!-f 'config.sh') {
+    report_and_exit( {
+        good => undef,
+        pass => 'PLEASE REPORT BUG',
+        fail => 'could not build',
+        description => 'config.sh',
+        options => \%options,
+    } ) if $options{'test-build'};
 
     # Skip if something went wrong with Configure
     skip('could not build config.sh');
@@ -1665,11 +1692,18 @@ if ($expected_file_found && $expected_file eq 't/perl') {
 my $just_testing = 0;
 
 if ($options{'test-build'}) {
-    report_and_exit($expected_file_found, 'could build', 'could not build',
-                    $real_target);
-} elsif (!$expected_file_found) {
+    report_and_exit( {
+        good => $expected_file_found,
+        pass => 'could build',
+        fail => 'could not build',
+        description => $real_target,
+        options => \%options,
+    } );
+}
+elsif (!$expected_file_found) {
     skip("could not build $real_target");
-} elsif (my $mod_opt = $options{module} || $options{'with-module'}
+}
+elsif (my $mod_opt = $options{module} || $options{'with-module'}
                || ($just_testing++, $options{'test-module'})) {
   # Testing a cpan module? See if it will install
   # First we need to install this perl somewhere
@@ -1729,7 +1763,13 @@ if ($options{'test-build'}) {
 
     # Failed? Give up
     if ($ret) {
-      report_and_exit(!$ret, 'zero exit from', 'non-zero exit from', "@_");
+      report_and_exit( {
+        good => !$ret,
+        pass => 'zero exit from',
+        fail => 'non-zero exit from',
+        description => "@_",
+        options => \%options,
+      } );
     }
   }
 }
