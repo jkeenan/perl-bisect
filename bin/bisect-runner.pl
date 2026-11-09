@@ -1431,16 +1431,15 @@ sub run_report_and_exit {
     report_and_exit(!$ret, 'zero exit from', 'non-zero exit from', "@_");
 }
 
-# NOT FULLY ENCAPSULATED YET: $match
 sub match_and_exit {
-    my ($target, @globs) = @_;
+    my ($target, $globs_ref, $match) = @_;
     my $matches = 0;
     my $re = qr/$match/;
     my @files;
 
-    if (@globs) {
+    if (@{$globs_ref}) {
         require File::Glob;
-        foreach (sort map { File::Glob::bsd_glob($_)} @globs) {
+        foreach (sort map { File::Glob::bsd_glob($_)} @{$globs_ref}) {
             if (!-f $_ || !-r _) {
                 warn "Skipping matching '$_' as it is not a readable file\n";
             } else {
@@ -1477,10 +1476,10 @@ sub match_and_exit {
 system_or_die('git clean -dxf');
 
 if (!defined $target) {
-    match_and_exit(undef, @ARGV) if $match;
+    match_and_exit(undef, [@ARGV], $match) if $match;
     $target = 'test_prep';
 } elsif ($target eq 'none') {
-    match_and_exit(undef, @ARGV) if $match;
+    match_and_exit(undef, [@ARGV], $match) if $match;
     run_report_and_exit(@ARGV);
 }
 
@@ -1629,7 +1628,7 @@ if (-f 'config.sh') {
 }
 
 if ($target =~ /config\.s?h/) {
-    match_and_exit($target, @ARGV) if $match && -f $target;
+    match_and_exit(undef, [@ARGV], $match) if $match && -f $target;
     report_and_exit(-f $target, 'could build', 'could not build', $target)
         if $options{'test-build'};
 
@@ -1780,7 +1779,7 @@ if ($options{'test-build'}) {
   }
 }
 
-match_and_exit($real_target, @ARGV) if $match;
+match_and_exit($real_target, [@ARGV], $match) if $match;
 
 if (defined $options{'one-liner'}) {
     my $exe = $target =~ /^(?:perl$|test)/ ? 'perl' : 'miniperl';
