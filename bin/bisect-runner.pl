@@ -30,6 +30,10 @@ use Perl5::Bisect::Auxiliary qw(
     report_and_exit
     run_report_and_exit
 );
+use Perl5::Bisect::Patching qw(
+    force_manifest
+    force_manifest_cleanup
+);
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
@@ -1792,65 +1796,6 @@ sub fake_noextensions {
                   }
                   return join "\n", @lines;
               });
-}
-
-sub force_manifest {
-    my (@missing, @created_dirs);
-    my $fh = open_or_die('MANIFEST');
-    while (<$fh>) {
-        next unless /^(\S+)/;
-        # -d is special case needed (at least) between 27332437a2ed1941 and
-        # bf3d9ec563d25054^ inclusive, as manifest contains ext/Thread/Thread
-        push @missing, $1
-            unless -f $1 || -d $1;
-    }
-    close_or_die($fh);
-
-    foreach my $pathname (@missing) {
-        my @parts = split '/', $pathname;
-        my $leaf = pop @parts;
-        my $path = '.';
-        while (@parts) {
-            $path .= '/' . shift @parts;
-            next if -d $path;
-            mkdir $path, 0700 or die_255("Can't create $path: $!");
-            unshift @created_dirs, $path;
-        }
-        $fh = open_or_die($pathname, '>');
-        close_or_die($fh);
-        chmod 0, $pathname or die_255("Can't chmod 0 $pathname: $!");
-    }
-    return \@missing, \@created_dirs;
-}
-
-sub force_manifest_cleanup {
-    my ($missing, $created_dirs) = @_;
-    # This is probably way too paranoid:
-    my @errors;
-    require Fcntl;
-    foreach my $file (@$missing) {
-        my (undef, undef, $mode, undef, undef, undef, undef, $size)
-            = stat $file;
-        if (!defined $mode) {
-            push @errors, "Added file $file has been deleted by Configure";
-            next;
-        }
-        if (Fcntl::S_IMODE($mode) != 0) {
-            push @errors,
-                sprintf 'Added file %s had mode changed by Configure to %03o',
-                    $file, $mode;
-        }
-        if ($size != 0) {
-            push @errors,
-                "Added file $file had sized changed by Configure to $size";
-        }
-        unlink $file or die_255("Can't unlink $file: $!");
-    }
-    foreach my $dir (@$created_dirs) {
-        rmdir $dir or die_255("Can't rmdir $dir: $!");
-    }
-    skip("@errors")
-        if @errors;
 }
 
 sub patch_Configure {
