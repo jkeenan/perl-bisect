@@ -24,6 +24,7 @@ require Exporter;
     revert_commit
     skip
     check_shebang
+    checkout_file
 |);
 
 =head1 NAME
@@ -373,6 +374,13 @@ test case to
 parsed as an argument to bisect.pl]
 
 Bailing out");
+}
+
+sub checkout_file {
+    my $args = shift;
+    $args->{commit} ||= $args->{options}{gold} || 'blead';
+    system "git show $args->{commit}:$args->{file} > $args->{file} </dev/null"
+        and die_255("Could not extract $args->{file} at revision $args->{commit}");
 }
 
 1;

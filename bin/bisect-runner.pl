@@ -25,6 +25,7 @@ use Perl5::Bisect::Auxiliary qw(
     revert_commit
     skip
     check_shebang
+    checkout_file
 );
 
 my @targets
@@ -1403,13 +1404,6 @@ sub clean {
         # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
         system 'git reset --hard HEAD </dev/null';
     }
-}
-
-sub checkout_file {
-    my $args = shift;
-    $args->{commit} ||= $args->{options}{gold} || 'blead';
-    system "git show $args->{commit}:$args->{file} > $args->{file} </dev/null"
-        and die_255("Could not extract $args->{file} at revision $args->{commit}");
 }
 
 # CANNOT BE MOVED YET; dependency on clean()
