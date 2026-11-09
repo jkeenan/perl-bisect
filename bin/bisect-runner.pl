@@ -33,7 +33,9 @@ use Perl5::Bisect::Auxiliary qw(
 use Perl5::Bisect::Patching qw(
     force_manifest
     force_manifest_cleanup
+    apply_fixups
 );
+#patch_C
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
@@ -4432,45 +4434,6 @@ sub patch_t {
                       $code =~ s/`(\$\^X )/`$aggressive_apple_security$1/;
                       return $code;
                   });
-    }
-}
-
-sub apply_fixups {
-    my $fixups = shift;
-    return unless $fixups;
-    foreach my $file (@$fixups) {
-        my $fh = open_or_die($file);
-        my $line = <$fh>;
-        close_or_die($fh);
-        if ($line =~ /^#!perl\b/) {
-            system $^X, $file
-                and die_255("$^X $file failed: \$!=$!, \$?=$?");
-        } elsif ($line =~ /^#!(\/\S+)/) {
-            system $file
-                and die_255("$file failed: \$!=$!, \$?=$?");
-        } else {
-            if (my ($target, $action, $pattern)
-                = $line =~ m#^(\S+) ([=!])~ /(.*)/#) {
-                if (length $pattern) {
-                    next unless -f $target;
-                    if ($action eq '=') {
-                        next unless extract_from_file($target, $pattern);
-                    } else {
-                        next if extract_from_file($target, $pattern);
-                    }
-                } else {
-                    # Avoid the special case meaning of the empty pattern,
-                    # and instead use this to simply test for the file being
-                    # present or absent
-                    if ($action eq '=') {
-                        next unless -f $target;
-                    } else {
-                        next if -f $target;
-                    }
-                }
-            }
-            system_or_die("patch -p1 <$file");
-        }
     }
 }
 

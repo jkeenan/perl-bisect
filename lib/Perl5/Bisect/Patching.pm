@@ -19,17 +19,17 @@ $VERSION = "0.01";
 require Exporter;
 @ISA         = qw(Exporter);
 @EXPORT_OK = ( qw|
-    fake_noextensions
     force_manifest
     force_manifest_cleanup
-    patch_Configure
-    patch_hints
-    patch_SH
-    patch_C
-    patch_ext
-    patch_t
     apply_fixups
 |);
+    #fake_noextensions
+    #patch_Configure
+    #patch_SH
+    #patch_hints
+    #patch_t
+    #patch_ext
+    #patch_C
 
 =head1 NAME
 
@@ -1587,6 +1587,7 @@ EOT
     }
 }
 
+# NOT ENCAPSULATED: $major
 sub patch_C {
     # This is ordered by $major, as it's likely that different platforms may
     # well want to share code.
