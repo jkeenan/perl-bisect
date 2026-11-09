@@ -22,8 +22,8 @@ require Exporter;
     force_manifest
     force_manifest_cleanup
     apply_fixups
+    fake_noextensions
 |);
-    #fake_noextensions
     #patch_Configure
     #patch_SH
     #patch_hints
@@ -43,12 +43,11 @@ Perl5::Bisect::Patching - Patching, editing, faking subroutines for Perl5::Bisec
 #
 ############################################################################
 
-my %defines;
-# NOT ENCAPSULATED: %defines
 sub fake_noextensions {
+    my $defines = shift;
     edit_file('config.sh', sub {
                   my @lines = split /\n/, shift;
-                  my @ext = split /\s+/, $defines{noextensions};
+                  my @ext = split /\s+/, $defines->{noextensions};
                   foreach (@lines) {
                       next unless /^extensions=/ || /^dynamic_ext/;
                       foreach my $ext (@ext) {

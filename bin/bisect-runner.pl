@@ -34,6 +34,7 @@ use Perl5::Bisect::Patching qw(
     force_manifest
     force_manifest_cleanup
     apply_fixups
+    fake_noextensions
 );
 #patch_C
 
@@ -1545,7 +1546,7 @@ apply_fixups($options{'late-fixup'});
 
 if (-f 'config.sh') {
     # Emulate noextensions if Configure doesn't support it.
-    fake_noextensions()
+    fake_noextensions(\%defines)
         if $major < 10 && $defines{noextensions};
     if (system './Configure -S') {
         # See commit v5.23.5-89-g7a4fcb3.  Configure may try to run
@@ -1785,20 +1786,6 @@ run_report_and_exit(\%options, @ARGV);
 # Patching, editing and faking routines only below here.
 #
 ############################################################################
-
-sub fake_noextensions {
-    edit_file('config.sh', sub {
-                  my @lines = split /\n/, shift;
-                  my @ext = split /\s+/, $defines{noextensions};
-                  foreach (@lines) {
-                      next unless /^extensions=/ || /^dynamic_ext/;
-                      foreach my $ext (@ext) {
-                          s/\b$ext( )?\b/$1/;
-                      }
-                  }
-                  return join "\n", @lines;
-              });
-}
 
 sub patch_Configure {
     if ($major < 1) {
