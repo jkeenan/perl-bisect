@@ -26,6 +26,7 @@ use Perl5::Bisect::Auxiliary qw(
     skip
     check_shebang
     checkout_file
+    match_and_exit
 );
 
 my @targets
@@ -1429,47 +1430,6 @@ sub run_report_and_exit {
                                }, @_);
     $ret &= 0xff if $options{crash};
     report_and_exit(!$ret, 'zero exit from', 'non-zero exit from', "@_");
-}
-
-sub match_and_exit {
-    my ($target, $globs_ref, $match) = @_;
-    my $matches = 0;
-    my $re = qr/$match/;
-    my @files;
-
-    if (@{$globs_ref}) {
-        require File::Glob;
-        foreach (sort map { File::Glob::bsd_glob($_)} @{$globs_ref}) {
-            if (!-f $_ || !-r _) {
-                warn "Skipping matching '$_' as it is not a readable file\n";
-            } else {
-                push @files, $_;
-            }
-        }
-    } else {
-        local $/ = "\0";
-        @files = defined $target ? `git ls-files -o -z`: `git ls-files -z`;
-        chomp @files;
-    }
-
-    foreach my $file (@files) {
-        my $fh = open_or_die($file);
-        while (<$fh>) {
-            if ($_ =~ $re) {
-                ++$matches;
-                if (/[^[:^cntrl:]\h\v]/) { # Matches non-spacing non-C1 controls
-                    print "Binary file $file matches\n";
-                } else {
-                    $_ .= "\n" unless /\n\z/;
-                    print "$file: $_";
-                }
-            }
-        }
-        close_or_die($fh);
-    }
-    report_and_exit($matches,
-                    $matches == 1 ? '1 match for' : "$matches matches for",
-                    'no matches for', $match);
 }
 
 # Not going to assume that system perl is yet new enough to have autodie
