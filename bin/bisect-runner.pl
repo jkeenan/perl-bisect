@@ -1395,8 +1395,10 @@ if (exists $options{make}) {
 # and nearly all the patches embedded here are unified. So it seems that the
 # path of least resistance is to convert unified diffs to context diffs:
 
-# NOT FULLY ENCAPSULATED YET: %options
-sub clean {
+# CANNOT BE MOVED YET; reliance on %options breaks encapsulation
+sub report_and_exit {
+    my ($good, $pass, $fail, $desc) = @_;
+
     if ($options{clean}) {
         # Needed, because files that are build products in this checked out
         # version might be in git in the next desired version.
@@ -1405,13 +1407,6 @@ sub clean {
         # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
         system 'git reset --hard HEAD </dev/null';
     }
-}
-
-# CANNOT BE MOVED YET; dependency on clean()
-sub report_and_exit {
-    my ($good, $pass, $fail, $desc) = @_;
-
-    clean();
 
     my $got = ($options{'expect-pass'} ? $good : !$good) ? 'good' : 'bad';
     if ($good) {
@@ -1423,7 +1418,7 @@ sub report_and_exit {
     exit($got eq 'bad');
 }
 
-# CANNOT BE MOVED YET; indirect dependency on clean()
+# CANNOT BE MOVED YET; reliance on %options and report_and_exit() breaks encapsulation
 sub run_report_and_exit {
     my $ret = run_with_options({setprgp => $options{setpgrp},
                                 timeout => $options{timeout},
