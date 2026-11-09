@@ -1398,16 +1398,18 @@ if (exists $options{make}) {
 
 # CANNOT BE MOVED YET; reliance on %options and report_and_exit() breaks encapsulation
 sub run_report_and_exit {
-    my $ret = run_with_options({setprgp => $options{setpgrp},
-                                timeout => $options{timeout},
+    my $options = shift;
+    my $ret = run_with_options({setprgp => $options->{setpgrp},
+                                timeout => $options->{timeout},
                                }, @_);
-    $ret &= 0xff if $options{crash};
+    $ret &= 0xff if $options->{crash};
     report_and_exit( {
         good => !$ret,
         pass => 'zero exit from',
         fail => 'non-zero exit from',
         description => "@_",
-        options => \%options,
+        #options => \%options,
+        options => $options,
     } );
 }
 
@@ -1419,7 +1421,7 @@ if (!defined $target) {
     $target = 'test_prep';
 } elsif ($target eq 'none') {
     match_and_exit(undef, [@ARGV], $match) if $match;
-    run_report_and_exit(@ARGV);
+    run_report_and_exit(\%options, @ARGV);
 }
 
 skip('no Configure - is this the //depot/perlext/Compiler branch?')
@@ -1578,7 +1580,7 @@ if ($target =~ /config\.s?h/) {
 
     skip("could not build $target") unless -f $target;
 
-    run_report_and_exit(@ARGV);
+    run_report_and_exit(\%options, @ARGV);
 }
 elsif (!-f 'config.sh') {
     report_and_exit( {
@@ -1722,7 +1724,7 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
   my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
 
   if ($options{module} || $options{'test-module'}) {
-    run_report_and_exit(@cpanshell, $shellcmd);
+    run_report_and_exit(\%options, @cpanshell, $shellcmd);
   } else {
     my $ret = run_with_options({setprgp => $options{setpgrp},
                                 timeout => $options{timeout},
@@ -1786,7 +1788,7 @@ if (exists $Config{ldlibpthname}) {
     }
 }
 
-run_report_and_exit(@ARGV);
+run_report_and_exit(\%options, @ARGV);
 
 ############################################################################
 #
