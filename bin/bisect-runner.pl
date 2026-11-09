@@ -2683,7 +2683,6 @@ sub patch_hints {
             # monotonic bug fixing.
             my $faking_it;
             if (!-f 'hints/darwin.sh') {
-                #checkout_file('hints/darwin.sh', 'f556e5b971932902');
                 checkout_file({
                     file => 'hints/darwin.sh',
                     commit => 'f556e5b971932902',
@@ -2823,7 +2822,6 @@ EOC
         }
     } elsif ($^O eq 'openbsd') {
         if ($major < 8) {
-            #checkout_file('hints/openbsd.sh', '43051805d53a3e4c')
             checkout_file({
                 file => 'hints/openbsd.sh',
                 commit => '43051805d53a3e4c',
@@ -3299,7 +3297,6 @@ EOT
     # It's the same version in v5.26.0 to v5.34.0
     # Post v5.34.0, commit 8d469d0ecbd06a99 completely changes how makedepend.SH
     # interacts with Makefile.SH, meaning that it's not a drop-in upgrade.
-    #checkout_file('makedepend.SH', 'v5.34.0')
     checkout_file({
         file => 'makedepend.SH',
         commit => 'v5.34.0',
