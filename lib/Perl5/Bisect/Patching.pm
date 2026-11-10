@@ -26,10 +26,10 @@ require Exporter;
     patch_ext
     patch_SH
     patch_t
+    patch_hints
+    patch_Configure
+    patch_C
 |);
-    #patch_Configure
-    #patch_hints
-    #patch_C
 
 =head1 NAME
 
@@ -117,9 +117,8 @@ sub force_manifest_cleanup {
         if @errors;
 }
 
-my $major;
-# NOT ENCAPSULATED: $major
 sub patch_Configure {
+    my $major = shift;
     if ($major < 1) {
         if (extract_from_file('Configure',
                               qr/^\t\t\*=\*\) echo "\$1" >> \$optdef;;$/)) {
@@ -923,9 +922,8 @@ EOPATCH
     }
 }
 
-my (%options, $case_insensitive);
-# NOT ENCAPSULATED: %options $case_insensitive
 sub patch_hints {
+    my ($options, $case_insensitive, $major) = @_;
     if ($^O eq 'freebsd') {
         # There are rather too many version-specific FreeBSD hints fixes to
         # patch individually. Also, more than once the FreeBSD hints file has
@@ -938,7 +936,7 @@ sub patch_hints {
         checkout_file({
             file => 'hints/freebsd.sh',
             commit => '',
-            options => \%options,
+            options => $options,
         });
     } elsif ($^O eq 'darwin') {
         if ($major < 8) {
@@ -954,7 +952,7 @@ sub patch_hints {
                 checkout_file({
                     file => 'hints/darwin.sh',
                     commit => 'f556e5b971932902',
-                    options => \%options,
+                    options => $options,
                 });
                 ++$faking_it;
             }
@@ -1093,7 +1091,7 @@ EOC
             checkout_file({
                 file => 'hints/openbsd.sh',
                 commit => '43051805d53a3e4c',
-                options => \%options,
+                options => $options,
             }) unless -f 'hints/openbsd.sh';
             my $which = extract_from_file('hints/openbsd.sh',
                                           qr/# from (2\.8|3\.1) onwards/,
@@ -1237,7 +1235,7 @@ EOT
 }
 
 sub patch_SH {
-    my ($aggressive_apple_security, $major) = @_;
+    my ($aggressive_apple_security, $major, $options) = @_;
     # Cwd.xs added in commit 0d2079faa739aaa9. Cwd.pm moved to ext/ 8 years
     # later in commit 403f501d5b37ebf0
     if ($major > 0 && <*/Cwd/Cwd.xs>) {
@@ -1569,7 +1567,7 @@ EOT
     checkout_file({
         file => 'makedepend.SH',
         commit => 'v5.34.0',
-        options => \%options,
+        options => $options,
     }) if $major < 26;
 
     if ($major < 4 && -f 'config.sh'
@@ -1585,8 +1583,8 @@ EOT
     }
 }
 
-# NOT ENCAPSULATED: $major
 sub patch_C {
+    my $major = shift;
     # This is ordered by $major, as it's likely that different platforms may
     # well want to share code.
 
@@ -2451,7 +2449,7 @@ EOPATCH
 }
 
 sub patch_ext {
-    my ($major, $unfixable_db_file) = @_;
+    my ($major, $unfixable_db_file, $options) = @_;
     if (-f 'ext/POSIX/Makefile.PL'
         && extract_from_file('ext/POSIX/Makefile.PL',
                              qr/Explicitly avoid including/)) {
@@ -2477,7 +2475,7 @@ sub patch_ext {
         checkout_file({
             file => 'ext/DynaLoader/dl_dyld.xs',
             commit => 'f556e5b971932902',
-            options => \%options,
+            options => $options,
         });
         apply_patch(<<'EOPATCH');
 diff -u a/ext/DynaLoader/dl_dyld.xs~ a/ext/DynaLoader/dl_dyld.xs
