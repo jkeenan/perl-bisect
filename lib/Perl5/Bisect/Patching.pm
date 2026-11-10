@@ -23,12 +23,12 @@ require Exporter;
     force_manifest_cleanup
     apply_fixups
     fake_noextensions
+    patch_ext
 |);
     #patch_Configure
     #patch_SH
     #patch_hints
     #patch_t
-    #patch_ext
     #patch_C
 
 =head1 NAME
@@ -2451,9 +2451,8 @@ EOPATCH
     }
 }
 
-my $unfixable_db_file;
-# NOT ENCAPSULATED: $unfixable_db_file
 sub patch_ext {
+    my ($major, $unfixable_db_file) = @_;
     if (-f 'ext/POSIX/Makefile.PL'
         && extract_from_file('ext/POSIX/Makefile.PL',
                              qr/Explicitly avoid including/)) {
@@ -2476,7 +2475,6 @@ sub patch_ext {
     }
 
     if ($major < 8 && $^O eq 'darwin' && !-f 'ext/DynaLoader/dl_dyld.xs') {
-        #checkout_file('ext/DynaLoader/dl_dyld.xs', 'f556e5b971932902');
         checkout_file({
             file => 'ext/DynaLoader/dl_dyld.xs',
             commit => 'f556e5b971932902',
