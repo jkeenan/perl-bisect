@@ -204,6 +204,432 @@ check_shebang($ARGV[0], $run_with_our_perl)
 
 exit 0 if $options{'check-args'};
 
+die_255("$0: Can't build $target")
+    if defined $target && !grep {@targets} $target;
+
+foreach my $phase (qw(early late)) {
+    next unless $options{"$phase-fixup"};
+    my $bail_out;
+    require File::Glob;
+    my @expanded;
+    foreach my $glob (@{$options{"$phase-fixup"}}) {
+        my @got = File::Glob::bsd_glob($glob);
+        push @expanded, @got ? @got : $glob;
+    }
+    @expanded = sort @expanded;
+    $options{"$phase-fixup"} = \@expanded;
+    foreach (@expanded) {
+        unless (-f $_) {
+            print STDERR "$phase-fixup '$_' is not a readable file\n";
+            ++$bail_out;
+        }
+    }
+    exit 255 if $bail_out;
+}
+
+unless (exists $defines{cc}) {
+    # If it fails, the heuristic of 63f9ec3008baf7d6 is noisy, and hence
+    # confusing.
+    # FIXME - really it should be replaced with a proper test of
+    # "can we build something?" and a helpful diagnostic if we can't.
+    # For now, simply move it here.
+    no warnings 'exec';
+    $defines{cc} = (`ccache -V`, $?) ? 'cc' : 'ccache cc';
+}
+
+my $j = $options{jobs} ? "-j$options{jobs}" : '';
+
+if (exists $options{make}) {
+    if (!exists $defines{make}) {
+        $defines{make} = $options{make};
+    }
+} else {
+    $options{make} = 'make';
+}
+
+# Sadly, however hard we try, I don't think that it will be possible to build
+# modules in ext/ on x86_64 Linux before commit e1666bf5602ae794 on 1999/12/29,
+# which updated to MakeMaker 3.7, which changed from using a hard coded ld
+# in the Makefile to $(LD). On x86_64 Linux the "linker" is gcc.
+
+# Not going to assume that system perl is yet new enough to have autodie
+system_or_die('git clean -dxf');
+
+if (!defined $target) {
+    match_and_exit(undef, [@ARGV], $match) if $match;
+    $target = 'test_prep';
+} elsif ($target eq 'none') {
+    match_and_exit(undef, [@ARGV], $match) if $match;
+    run_report_and_exit(\%options, @ARGV);
+}
+
+skip('no Configure - is this the //depot/perlext/Compiler branch?')
+    unless -f 'Configure';
+
+my $case_insensitive;
+{
+    my ($dev_C, $ino_C) = stat 'Configure';
+    die_255("Could not stat Configure: $!") unless defined $dev_C;
+    my ($dev_c, $ino_c) = stat 'configure';
+    ++$case_insensitive
+        if defined $dev_c && $dev_C == $dev_c && $ino_C == $ino_c;
+}
+
+# This changes to PERL_VERSION in 4d8076ea25903dcb in 1999
+my $major = extract_from_file(
+    'patchlevel.h',
+    qr/^#define\s+(?:PERL_VERSION|PATCHLEVEL)\s+(\d+)\s/,
+    0
+);
+
+my $unfixable_db_file;
+
+if ($major < 10
+    && !extract_from_file('ext/DB_File/DB_File.xs',
+                          qr!^#else /\* Berkeley DB Version > 2 \*/$!)) {
+    # This DB_File.xs is really too old to patch up.
+    # Skip DB_File, unless we're invoked with an explicit -Unoextensions
+    if (!exists $defines{noextensions}) {
+        $defines{noextensions} = 'DB_File';
+    } elsif (defined $defines{noextensions}) {
+        $defines{noextensions} .= ' DB_File';
+    }
+    ++$unfixable_db_file;
+}
+
+patch_Configure($major);
+patch_hints(\%options, $case_insensitive, $major);
+if ($options{'all-fixups'}) {
+    patch_SH($aggressive_apple_security, $major, \%options);
+    patch_C($major);
+    patch_ext($major, $unfixable_db_file, \%options);
+    patch_t($aggressive_apple_security);
+}
+apply_fixups($options{'early-fixup'});
+
+# if Encode is not needed for the test, you can speed up the bisect by
+# excluding it from the runs with -Dnoextensions=Encode
+# ccache is an easy win. Remove it if it causes problems.
+# Commit 1cfa4ec74d4933da adds ignore_versioned_solibs to Configure, and sets it
+# to true in hints/linux.sh
+# On dromedary, from that point on, Configure (by default) fails to find any
+# libraries, because it scans /usr/local/lib /lib /usr/lib, which only contain
+# versioned libraries. Without -lm, the build fails.
+# Telling /usr/local/lib64 /lib64 /usr/lib64 works from that commit onwards,
+# until commit faae14e6e968e1c0 adds it to the hints.
+# However, prior to 1cfa4ec74d4933da telling Configure the truth doesn't work,
+# because it will spot versioned libraries, pass them to the compiler, and then
+# bail out pretty early on. Configure won't let us override libswanted, but it
+# will let us override the entire libs list.
+
+foreach (@{$options{A}}) {
+    push @paths, $1 if /^libpth=(.*)/s;
+}
+
+unless (extract_from_file('Configure', 'ignore_versioned_solibs')) {
+    # Before 1cfa4ec74d4933da, so force the libs list.
+
+    my @libs;
+    # This is the current libswanted list from Configure, less the libs removed
+    # by current hints/linux.sh
+    foreach my $lib (qw(sfio socket inet nsl nm ndbm gdbm dbm db malloc dl
+			ld sun m crypt sec util c cposix posix ucb BSD)) {
+	foreach my $dir (@paths) {
+            # Note the wonderful consistency of dot-or-not in the config vars:
+            next unless -f "$dir/lib$lib.$Config{dlext}"
+                || -f "$dir/lib$lib$Config{lib_ext}";
+	    push @libs, "-l$lib";
+	    last;
+	}
+    }
+    $defines{libs} = \@libs unless exists $defines{libs};
+}
+
+# a4f3eea9be6bcf3c added a test for GNU libc to Configure
+# Prior to that we really don't get much choice but to force usenm off
+# everywhere (and modern systems are fast enough that this doesn't matter)
+$defines{usenm} = undef
+    if $major < 4 && !exists $defines{usenm};
+
+my ($missing, $created_dirs);
+($missing, $created_dirs) = force_manifest()
+    if $options{'force-manifest'};
+
+my @ARGS = '-dEs';
+foreach my $key (sort keys %defines) {
+    my $val = $defines{$key};
+    if (ref $val) {
+        push @ARGS, "-D$key=@$val";
+    } elsif (!defined $val) {
+        push @ARGS, "-U$key";
+    } elsif (!length $val) {
+        push @ARGS, "-D$key";
+    } else {
+        $val = "" if $val eq "\0";
+        push @ARGS, "-D$key=$val";
+    }
+}
+push @ARGS, map {"-A$_"} @{$options{A}};
+
+my $prefix;
+
+# Testing a module? We need to install perl/cpan modules to a temp dir
+if ($options{module} || $options{'with-module'} || $options{'test-module'})
+{
+  $prefix = tempdir(CLEANUP => 1);
+
+  push @ARGS, "-Dprefix=$prefix";
+  push @ARGS, "-Uversiononly", "-Dinstallusrbinperl=n";
+}
+
+# If a file in MANIFEST is missing, Configure asks if you want to
+# continue (the default being 'n'). With stdin closed or /dev/null,
+# it exits immediately and the check for config.sh below will skip.
+# Without redirecting stdin, the commands called will attempt to read from
+# stdin (and thus effectively hang)
+run_with_options({stdin => '/dev/null', name => 'Configure'},
+                 './Configure', @ARGS);
+
+patch_SH($aggressive_apple_security, $major, \%options) unless $options{'all-fixups'};
+apply_fixups($options{'late-fixup'});
+
+if (-f 'config.sh') {
+    # Emulate noextensions if Configure doesn't support it.
+    fake_noextensions(\%defines)
+        if $major < 10 && $defines{noextensions};
+    if (system './Configure -S') {
+        # See commit v5.23.5-89-g7a4fcb3.  Configure may try to run
+        # ./optdef.sh instead of UU/optdef.sh.  Copying the file is
+        # easier than patching Configure (which mentions optdef.sh multi-
+        # ple times).
+        require File::Copy;
+        File::Copy::copy("UU/optdef.sh", "./optdef.sh");
+        system_or_die('./Configure -S');
+    }
+}
+
+if ($target =~ /config\.s?h/) {
+    match_and_exit(undef, [@ARGV], $match) if $match && -f $target;
+    report_and_exit( {
+        good => -f $target,
+        pass => 'could build',
+        fail => 'could not build',
+        description => $target,
+        options => \%options,
+    } ) if $options{'test-build'};
+
+    skip("could not build $target") unless -f $target;
+
+    run_report_and_exit(\%options, @ARGV);
+}
+elsif (!-f 'config.sh') {
+    report_and_exit( {
+        good => undef,
+        pass => 'PLEASE REPORT BUG',
+        fail => 'could not build',
+        description => 'config.sh',
+        options => \%options,
+    } ) if $options{'test-build'};
+
+    # Skip if something went wrong with Configure
+    skip('could not build config.sh');
+}
+
+force_manifest_cleanup($missing, $created_dirs)
+        if $missing;
+
+if($options{'force-regen'}
+   && extract_from_file('Makefile', qr/\bregen_headers\b/)) {
+    # regen_headers was added in e50aee73b3d4c555, patch.1m for perl5.001
+    # It's not worth faking it for earlier revisions.
+    system_or_die('make regen_headers');
+}
+
+unless ($options{'all-fixups'}) {
+    patch_C($major);
+    patch_ext($major, $unfixable_db_file, \%options);
+    patch_t($aggressive_apple_security);
+}
+
+# Parallel build for miniperl is safe
+system "$options{make} $j miniperl </dev/null";
+
+# This is the file we expect make to create
+my $expected_file = $target =~ /^test/ ? 't/perl'
+    : $target eq 'Fcntl' ? "lib/auto/Fcntl/Fcntl.$Config{so}"
+    : $target;
+# This is the target we tell make to build in order to get $expected_file
+my $real_target = $target eq 'Fcntl' ? $expected_file : $target;
+
+if ($target ne 'miniperl') {
+    # Nearly all parallel build issues fixed by 5.10.0. Untrustworthy before that.
+    $j = '' if $major < 10;
+
+    if ($real_target eq 'test_prep') {
+        if ($major < 8) {
+            # test-prep was added in 5.004_01, 3e3baf6d63945cb6.
+            # renamed to test_prep in 2001 in 5fe84fd29acaf55c.
+            # earlier than that, just make test. It will be fast enough.
+            $real_target = extract_from_file('Makefile.SH',
+                                             qr/^(test[-_]prep):/,
+                                             'test');
+        }
+    }
+
+    system "$options{make} $j $real_target </dev/null";
+}
+
+my $expected_file_found = $expected_file =~ /perl$/
+    ? -x $expected_file : -r $expected_file;
+
+if ($expected_file_found && $expected_file eq 't/perl') {
+    # Check that it isn't actually pointing to ../miniperl, which will happen
+    # if the sanity check ./miniperl -Ilib -MExporter -e '<?>' fails, and
+    # Makefile tries to run minitest.
+
+    # Of course, helpfully sometimes it's called ../perl, other times .././perl
+    # and who knows if that list is exhaustive...
+    my ($dev0, $ino0) = stat 't/perl';
+    my ($dev1, $ino1) = stat 'perl';
+    unless (defined $dev0 && defined $dev1 && $dev0 == $dev1 && $ino0 == $ino1) {
+        undef $expected_file_found;
+        my $link = readlink $expected_file;
+        warn "'t/perl' => '$link', not 'perl'";
+        die_255("Could not realink t/perl: $!") unless defined $link;
+    }
+}
+
+my $just_testing = 0;
+
+if ($options{'test-build'}) {
+    report_and_exit( {
+        good => $expected_file_found,
+        pass => 'could build',
+        fail => 'could not build',
+        description => $real_target,
+        options => \%options,
+    } );
+}
+elsif (!$expected_file_found) {
+    skip("could not build $real_target");
+}
+elsif (my $mod_opt = $options{module} || $options{'with-module'}
+               || ($just_testing++, $options{'test-module'})) {
+  # Testing a cpan module? See if it will install
+  # First we need to install this perl somewhere
+  system_or_die('./installperl');
+
+  my @m = split(',', $mod_opt);
+
+  my $bdir = File::Temp::tempdir(
+    CLEANUP => 1,
+  ) or die $!;
+
+  # Don't ever stop to ask the user for input
+  $ENV{AUTOMATED_TESTING} = 1;
+  $ENV{PERL_MM_USE_DEFAULT} = 1;
+
+  # Don't let these interfere with our cpan installs
+  delete $ENV{PERL_MB_OPT};
+  delete $ENV{PERL_MM_OPT};
+
+  # Make sure we load up our CPAN::MyConfig and then
+  # override the build_dir so we have a fresh one
+  # every build
+  my $cdir = $options{'cpan-config-dir'}
+          || File::Spec->catfile($ENV{HOME},".cpan");
+
+  my @cpanshell = (
+    "$prefix/bin/perl",
+    "-I", "$cdir",
+    "-MCPAN::MyConfig",
+    "-MCPAN",
+    "-e","\$CPAN::Config->{build_dir}=q{$bdir};",
+    "-e",
+  );
+
+  for (@m) {
+    s/-/::/g if /-/ and !m|/|;
+  }
+  my $install = join ",", map { "'$_'" } @m;
+  if ($just_testing) {
+    $install = "test($install)";
+  } elsif ($options{'no-module-tests'}) {
+    $install = "notest('install',$install)";
+  } else {
+    $install = "install($install)";
+  }
+  my $last = $m[-1];
+  my $status_method = $just_testing ? 'test' : 'uptodate';
+  my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
+
+  if ($options{module} || $options{'test-module'}) {
+    run_report_and_exit(\%options, @cpanshell, $shellcmd);
+  } else {
+    my $ret = run_with_options({setprgp => $options{setpgrp},
+                                timeout => $options{timeout},
+                               }, @cpanshell, $shellcmd);
+    $ret &= 0xff if $options{crash};
+
+    # Failed? Give up
+    if ($ret) {
+      report_and_exit( {
+        good => !$ret,
+        pass => 'zero exit from',
+        fail => 'non-zero exit from',
+        description => "@_",
+        options => \%options,
+      } );
+    }
+  }
+}
+
+match_and_exit($real_target, [@ARGV], $match) if $match;
+
+if (defined $options{'one-liner'}) {
+    my $exe = $target =~ /^(?:perl$|test)/ ? 'perl' : 'miniperl';
+    unshift @ARGV, map {('-e', $_)} @{$options{'one-liner'}};
+    foreach (qw(c l w)) {
+        unshift @ARGV, "-$_" if $options{$_};
+    }
+    unshift @ARGV, "./$exe", '-Ilib';
+}
+
+if (-f $ARGV[0]) {
+    my $fh = open_or_die($ARGV[0]);
+    my $line = <$fh>;
+    unshift @ARGV, $1, '-Ilib'
+        if $line =~ $run_with_our_perl;
+}
+
+if ($options{valgrind}) {
+    # Turns out to be too confusing to use an optional argument with the path
+    # of the valgrind binary, as if --valgrind takes an optional argument,
+    # then specifying it as the last option eats the first part of the testcase.
+    # ie this: .../bisect.pl --valgrind testcase
+    # is treated as --valgrind=testcase and as there is no test case given,
+    # it's an invalid commandline, bailing out with the usage message.
+
+    # Currently, the test script can't signal a skip with 125, so anything
+    # non-zero would do. But to keep that option open in future, use 124
+    unshift @ARGV, 'valgrind', '--error-exitcode=124';
+}
+
+# This is what we came here to run:
+
+if (exists $Config{ldlibpthname}) {
+    require Cwd;
+    my $varname = $Config{ldlibpthname};
+    my $cwd = Cwd::getcwd();
+    if (defined $ENV{$varname}) {
+        $ENV{$varname} = $cwd . $Config{path_sep} . $ENV{$varname};
+    } else {
+        $ENV{$varname} = $cwd;
+    }
+}
+
+run_report_and_exit(\%options, @ARGV);
+
 =head1 NAME
 
 bisect.pl - use git bisect to pinpoint changes
@@ -1354,431 +1780,5 @@ L<GH issue 23435|https://github.com/Perl/perl5/issues/23435#issuecomment-3067034
 =back
 
 =cut
-
-die_255("$0: Can't build $target")
-    if defined $target && !grep {@targets} $target;
-
-foreach my $phase (qw(early late)) {
-    next unless $options{"$phase-fixup"};
-    my $bail_out;
-    require File::Glob;
-    my @expanded;
-    foreach my $glob (@{$options{"$phase-fixup"}}) {
-        my @got = File::Glob::bsd_glob($glob);
-        push @expanded, @got ? @got : $glob;
-    }
-    @expanded = sort @expanded;
-    $options{"$phase-fixup"} = \@expanded;
-    foreach (@expanded) {
-        unless (-f $_) {
-            print STDERR "$phase-fixup '$_' is not a readable file\n";
-            ++$bail_out;
-        }
-    }
-    exit 255 if $bail_out;
-}
-
-unless (exists $defines{cc}) {
-    # If it fails, the heuristic of 63f9ec3008baf7d6 is noisy, and hence
-    # confusing.
-    # FIXME - really it should be replaced with a proper test of
-    # "can we build something?" and a helpful diagnostic if we can't.
-    # For now, simply move it here.
-    no warnings 'exec';
-    $defines{cc} = (`ccache -V`, $?) ? 'cc' : 'ccache cc';
-}
-
-my $j = $options{jobs} ? "-j$options{jobs}" : '';
-
-if (exists $options{make}) {
-    if (!exists $defines{make}) {
-        $defines{make} = $options{make};
-    }
-} else {
-    $options{make} = 'make';
-}
-
-# Sadly, however hard we try, I don't think that it will be possible to build
-# modules in ext/ on x86_64 Linux before commit e1666bf5602ae794 on 1999/12/29,
-# which updated to MakeMaker 3.7, which changed from using a hard coded ld
-# in the Makefile to $(LD). On x86_64 Linux the "linker" is gcc.
-
-# Not going to assume that system perl is yet new enough to have autodie
-system_or_die('git clean -dxf');
-
-if (!defined $target) {
-    match_and_exit(undef, [@ARGV], $match) if $match;
-    $target = 'test_prep';
-} elsif ($target eq 'none') {
-    match_and_exit(undef, [@ARGV], $match) if $match;
-    run_report_and_exit(\%options, @ARGV);
-}
-
-skip('no Configure - is this the //depot/perlext/Compiler branch?')
-    unless -f 'Configure';
-
-my $case_insensitive;
-{
-    my ($dev_C, $ino_C) = stat 'Configure';
-    die_255("Could not stat Configure: $!") unless defined $dev_C;
-    my ($dev_c, $ino_c) = stat 'configure';
-    ++$case_insensitive
-        if defined $dev_c && $dev_C == $dev_c && $ino_C == $ino_c;
-}
-
-# This changes to PERL_VERSION in 4d8076ea25903dcb in 1999
-my $major = extract_from_file(
-    'patchlevel.h',
-    qr/^#define\s+(?:PERL_VERSION|PATCHLEVEL)\s+(\d+)\s/,
-    0
-);
-
-my $unfixable_db_file;
-
-if ($major < 10
-    && !extract_from_file('ext/DB_File/DB_File.xs',
-                          qr!^#else /\* Berkeley DB Version > 2 \*/$!)) {
-    # This DB_File.xs is really too old to patch up.
-    # Skip DB_File, unless we're invoked with an explicit -Unoextensions
-    if (!exists $defines{noextensions}) {
-        $defines{noextensions} = 'DB_File';
-    } elsif (defined $defines{noextensions}) {
-        $defines{noextensions} .= ' DB_File';
-    }
-    ++$unfixable_db_file;
-}
-
-patch_Configure($major);
-patch_hints(\%options, $case_insensitive, $major);
-if ($options{'all-fixups'}) {
-    patch_SH($aggressive_apple_security, $major, \%options);
-    patch_C($major);
-    patch_ext($major, $unfixable_db_file, \%options);
-    patch_t($aggressive_apple_security);
-}
-apply_fixups($options{'early-fixup'});
-
-# if Encode is not needed for the test, you can speed up the bisect by
-# excluding it from the runs with -Dnoextensions=Encode
-# ccache is an easy win. Remove it if it causes problems.
-# Commit 1cfa4ec74d4933da adds ignore_versioned_solibs to Configure, and sets it
-# to true in hints/linux.sh
-# On dromedary, from that point on, Configure (by default) fails to find any
-# libraries, because it scans /usr/local/lib /lib /usr/lib, which only contain
-# versioned libraries. Without -lm, the build fails.
-# Telling /usr/local/lib64 /lib64 /usr/lib64 works from that commit onwards,
-# until commit faae14e6e968e1c0 adds it to the hints.
-# However, prior to 1cfa4ec74d4933da telling Configure the truth doesn't work,
-# because it will spot versioned libraries, pass them to the compiler, and then
-# bail out pretty early on. Configure won't let us override libswanted, but it
-# will let us override the entire libs list.
-
-foreach (@{$options{A}}) {
-    push @paths, $1 if /^libpth=(.*)/s;
-}
-
-unless (extract_from_file('Configure', 'ignore_versioned_solibs')) {
-    # Before 1cfa4ec74d4933da, so force the libs list.
-
-    my @libs;
-    # This is the current libswanted list from Configure, less the libs removed
-    # by current hints/linux.sh
-    foreach my $lib (qw(sfio socket inet nsl nm ndbm gdbm dbm db malloc dl
-			ld sun m crypt sec util c cposix posix ucb BSD)) {
-	foreach my $dir (@paths) {
-            # Note the wonderful consistency of dot-or-not in the config vars:
-            next unless -f "$dir/lib$lib.$Config{dlext}"
-                || -f "$dir/lib$lib$Config{lib_ext}";
-	    push @libs, "-l$lib";
-	    last;
-	}
-    }
-    $defines{libs} = \@libs unless exists $defines{libs};
-}
-
-# a4f3eea9be6bcf3c added a test for GNU libc to Configure
-# Prior to that we really don't get much choice but to force usenm off
-# everywhere (and modern systems are fast enough that this doesn't matter)
-$defines{usenm} = undef
-    if $major < 4 && !exists $defines{usenm};
-
-my ($missing, $created_dirs);
-($missing, $created_dirs) = force_manifest()
-    if $options{'force-manifest'};
-
-my @ARGS = '-dEs';
-foreach my $key (sort keys %defines) {
-    my $val = $defines{$key};
-    if (ref $val) {
-        push @ARGS, "-D$key=@$val";
-    } elsif (!defined $val) {
-        push @ARGS, "-U$key";
-    } elsif (!length $val) {
-        push @ARGS, "-D$key";
-    } else {
-        $val = "" if $val eq "\0";
-        push @ARGS, "-D$key=$val";
-    }
-}
-push @ARGS, map {"-A$_"} @{$options{A}};
-
-my $prefix;
-
-# Testing a module? We need to install perl/cpan modules to a temp dir
-if ($options{module} || $options{'with-module'} || $options{'test-module'})
-{
-  $prefix = tempdir(CLEANUP => 1);
-
-  push @ARGS, "-Dprefix=$prefix";
-  push @ARGS, "-Uversiononly", "-Dinstallusrbinperl=n";
-}
-
-# If a file in MANIFEST is missing, Configure asks if you want to
-# continue (the default being 'n'). With stdin closed or /dev/null,
-# it exits immediately and the check for config.sh below will skip.
-# Without redirecting stdin, the commands called will attempt to read from
-# stdin (and thus effectively hang)
-run_with_options({stdin => '/dev/null', name => 'Configure'},
-                 './Configure', @ARGS);
-
-patch_SH($aggressive_apple_security, $major, \%options) unless $options{'all-fixups'};
-apply_fixups($options{'late-fixup'});
-
-if (-f 'config.sh') {
-    # Emulate noextensions if Configure doesn't support it.
-    fake_noextensions(\%defines)
-        if $major < 10 && $defines{noextensions};
-    if (system './Configure -S') {
-        # See commit v5.23.5-89-g7a4fcb3.  Configure may try to run
-        # ./optdef.sh instead of UU/optdef.sh.  Copying the file is
-        # easier than patching Configure (which mentions optdef.sh multi-
-        # ple times).
-        require File::Copy;
-        File::Copy::copy("UU/optdef.sh", "./optdef.sh");
-        system_or_die('./Configure -S');
-    }
-}
-
-if ($target =~ /config\.s?h/) {
-    match_and_exit(undef, [@ARGV], $match) if $match && -f $target;
-    report_and_exit( {
-        good => -f $target,
-        pass => 'could build',
-        fail => 'could not build',
-        description => $target,
-        options => \%options,
-    } ) if $options{'test-build'};
-
-    skip("could not build $target") unless -f $target;
-
-    run_report_and_exit(\%options, @ARGV);
-}
-elsif (!-f 'config.sh') {
-    report_and_exit( {
-        good => undef,
-        pass => 'PLEASE REPORT BUG',
-        fail => 'could not build',
-        description => 'config.sh',
-        options => \%options,
-    } ) if $options{'test-build'};
-
-    # Skip if something went wrong with Configure
-    skip('could not build config.sh');
-}
-
-force_manifest_cleanup($missing, $created_dirs)
-        if $missing;
-
-if($options{'force-regen'}
-   && extract_from_file('Makefile', qr/\bregen_headers\b/)) {
-    # regen_headers was added in e50aee73b3d4c555, patch.1m for perl5.001
-    # It's not worth faking it for earlier revisions.
-    system_or_die('make regen_headers');
-}
-
-unless ($options{'all-fixups'}) {
-    patch_C($major);
-    patch_ext($major, $unfixable_db_file, \%options);
-    patch_t($aggressive_apple_security);
-}
-
-# Parallel build for miniperl is safe
-system "$options{make} $j miniperl </dev/null";
-
-# This is the file we expect make to create
-my $expected_file = $target =~ /^test/ ? 't/perl'
-    : $target eq 'Fcntl' ? "lib/auto/Fcntl/Fcntl.$Config{so}"
-    : $target;
-# This is the target we tell make to build in order to get $expected_file
-my $real_target = $target eq 'Fcntl' ? $expected_file : $target;
-
-if ($target ne 'miniperl') {
-    # Nearly all parallel build issues fixed by 5.10.0. Untrustworthy before that.
-    $j = '' if $major < 10;
-
-    if ($real_target eq 'test_prep') {
-        if ($major < 8) {
-            # test-prep was added in 5.004_01, 3e3baf6d63945cb6.
-            # renamed to test_prep in 2001 in 5fe84fd29acaf55c.
-            # earlier than that, just make test. It will be fast enough.
-            $real_target = extract_from_file('Makefile.SH',
-                                             qr/^(test[-_]prep):/,
-                                             'test');
-        }
-    }
-
-    system "$options{make} $j $real_target </dev/null";
-}
-
-my $expected_file_found = $expected_file =~ /perl$/
-    ? -x $expected_file : -r $expected_file;
-
-if ($expected_file_found && $expected_file eq 't/perl') {
-    # Check that it isn't actually pointing to ../miniperl, which will happen
-    # if the sanity check ./miniperl -Ilib -MExporter -e '<?>' fails, and
-    # Makefile tries to run minitest.
-
-    # Of course, helpfully sometimes it's called ../perl, other times .././perl
-    # and who knows if that list is exhaustive...
-    my ($dev0, $ino0) = stat 't/perl';
-    my ($dev1, $ino1) = stat 'perl';
-    unless (defined $dev0 && defined $dev1 && $dev0 == $dev1 && $ino0 == $ino1) {
-        undef $expected_file_found;
-        my $link = readlink $expected_file;
-        warn "'t/perl' => '$link', not 'perl'";
-        die_255("Could not realink t/perl: $!") unless defined $link;
-    }
-}
-
-my $just_testing = 0;
-
-if ($options{'test-build'}) {
-    report_and_exit( {
-        good => $expected_file_found,
-        pass => 'could build',
-        fail => 'could not build',
-        description => $real_target,
-        options => \%options,
-    } );
-}
-elsif (!$expected_file_found) {
-    skip("could not build $real_target");
-}
-elsif (my $mod_opt = $options{module} || $options{'with-module'}
-               || ($just_testing++, $options{'test-module'})) {
-  # Testing a cpan module? See if it will install
-  # First we need to install this perl somewhere
-  system_or_die('./installperl');
-
-  my @m = split(',', $mod_opt);
-
-  my $bdir = File::Temp::tempdir(
-    CLEANUP => 1,
-  ) or die $!;
-
-  # Don't ever stop to ask the user for input
-  $ENV{AUTOMATED_TESTING} = 1;
-  $ENV{PERL_MM_USE_DEFAULT} = 1;
-
-  # Don't let these interfere with our cpan installs
-  delete $ENV{PERL_MB_OPT};
-  delete $ENV{PERL_MM_OPT};
-
-  # Make sure we load up our CPAN::MyConfig and then
-  # override the build_dir so we have a fresh one
-  # every build
-  my $cdir = $options{'cpan-config-dir'}
-          || File::Spec->catfile($ENV{HOME},".cpan");
-
-  my @cpanshell = (
-    "$prefix/bin/perl",
-    "-I", "$cdir",
-    "-MCPAN::MyConfig",
-    "-MCPAN",
-    "-e","\$CPAN::Config->{build_dir}=q{$bdir};",
-    "-e",
-  );
-
-  for (@m) {
-    s/-/::/g if /-/ and !m|/|;
-  }
-  my $install = join ",", map { "'$_'" } @m;
-  if ($just_testing) {
-    $install = "test($install)";
-  } elsif ($options{'no-module-tests'}) {
-    $install = "notest('install',$install)";
-  } else {
-    $install = "install($install)";
-  }
-  my $last = $m[-1];
-  my $status_method = $just_testing ? 'test' : 'uptodate';
-  my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
-
-  if ($options{module} || $options{'test-module'}) {
-    run_report_and_exit(\%options, @cpanshell, $shellcmd);
-  } else {
-    my $ret = run_with_options({setprgp => $options{setpgrp},
-                                timeout => $options{timeout},
-                               }, @cpanshell, $shellcmd);
-    $ret &= 0xff if $options{crash};
-
-    # Failed? Give up
-    if ($ret) {
-      report_and_exit( {
-        good => !$ret,
-        pass => 'zero exit from',
-        fail => 'non-zero exit from',
-        description => "@_",
-        options => \%options,
-      } );
-    }
-  }
-}
-
-match_and_exit($real_target, [@ARGV], $match) if $match;
-
-if (defined $options{'one-liner'}) {
-    my $exe = $target =~ /^(?:perl$|test)/ ? 'perl' : 'miniperl';
-    unshift @ARGV, map {('-e', $_)} @{$options{'one-liner'}};
-    foreach (qw(c l w)) {
-        unshift @ARGV, "-$_" if $options{$_};
-    }
-    unshift @ARGV, "./$exe", '-Ilib';
-}
-
-if (-f $ARGV[0]) {
-    my $fh = open_or_die($ARGV[0]);
-    my $line = <$fh>;
-    unshift @ARGV, $1, '-Ilib'
-        if $line =~ $run_with_our_perl;
-}
-
-if ($options{valgrind}) {
-    # Turns out to be too confusing to use an optional argument with the path
-    # of the valgrind binary, as if --valgrind takes an optional argument,
-    # then specifying it as the last option eats the first part of the testcase.
-    # ie this: .../bisect.pl --valgrind testcase
-    # is treated as --valgrind=testcase and as there is no test case given,
-    # it's an invalid commandline, bailing out with the usage message.
-
-    # Currently, the test script can't signal a skip with 125, so anything
-    # non-zero would do. But to keep that option open in future, use 124
-    unshift @ARGV, 'valgrind', '--error-exitcode=124';
-}
-
-# This is what we came here to run:
-
-if (exists $Config{ldlibpthname}) {
-    require Cwd;
-    my $varname = $Config{ldlibpthname};
-    my $cwd = Cwd::getcwd();
-    if (defined $ENV{$varname}) {
-        $ENV{$varname} = $cwd . $Config{path_sep} . $ENV{$varname};
-    } else {
-        $ENV{$varname} = $cwd;
-    }
-}
-
-run_report_and_exit(\%options, @ARGV);
 
 # ex: set ts=8 sts=4 sw=4 et:
