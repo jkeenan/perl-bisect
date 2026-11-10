@@ -24,11 +24,11 @@ require Exporter;
     apply_fixups
     fake_noextensions
     patch_ext
+    patch_SH
+    patch_t
 |);
     #patch_Configure
-    #patch_SH
     #patch_hints
-    #patch_t
     #patch_C
 
 =head1 NAME
@@ -1236,9 +1236,8 @@ EOT
     }
 }
 
-my ($aggressive_apple_security, );
-# NOT ENCAPSULATED: $aggressive_apple_security
 sub patch_SH {
+    my ($aggressive_apple_security, $major) = @_;
     # Cwd.xs added in commit 0d2079faa739aaa9. Cwd.pm moved to ext/ 8 years
     # later in commit 403f501d5b37ebf0
     if ($major > 0 && <*/Cwd/Cwd.xs>) {
@@ -2749,8 +2748,8 @@ EOPATCH
     }
 }
 
-# NOT ENCAPSULATED: $aggressive_apple_security
 sub patch_t {
+    my $aggressive_apple_security = shift;
     if ($^O eq 'darwin') {
         # This has # $x = `$^X -le "print 'hi there'"`;
         # and it needs to pass for the automated validation self-test:

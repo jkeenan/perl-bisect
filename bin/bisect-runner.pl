@@ -36,8 +36,9 @@ use Perl5::Bisect::Patching qw(
     apply_fixups
     fake_noextensions
     patch_ext
+    patch_SH
+    patch_t
 );
-#patch_C
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
@@ -1452,10 +1453,10 @@ if ($major < 10
 patch_Configure();
 patch_hints();
 if ($options{'all-fixups'}) {
-    patch_SH();
+    patch_SH($aggressive_apple_security, $major);
     patch_C();
     patch_ext($major, $unfixable_db_file);
-    patch_t();
+    patch_t($aggressive_apple_security);
 }
 apply_fixups($options{'early-fixup'});
 
@@ -1542,7 +1543,7 @@ if ($options{module} || $options{'with-module'} || $options{'test-module'})
 run_with_options({stdin => '/dev/null', name => 'Configure'},
                  './Configure', @ARGS);
 
-patch_SH() unless $options{'all-fixups'};
+patch_SH($aggressive_apple_security, $major) unless $options{'all-fixups'};
 apply_fixups($options{'late-fixup'});
 
 if (-f 'config.sh') {
@@ -1600,7 +1601,7 @@ if($options{'force-regen'}
 unless ($options{'all-fixups'}) {
     patch_C();
     patch_ext($major, $unfixable_db_file);
-    patch_t();
+    patch_t($aggressive_apple_security);
 }
 
 # Parallel build for miniperl is safe
@@ -2903,354 +2904,6 @@ EOT
     }
 }
 
-sub patch_SH {
-    # Cwd.xs added in commit 0d2079faa739aaa9. Cwd.pm moved to ext/ 8 years
-    # later in commit 403f501d5b37ebf0
-    if ($major > 0 && <*/Cwd/Cwd.xs>) {
-        if ($major < 10
-            && !extract_from_file('Makefile.SH', qr/^extra_dep=''$/)) {
-            # The Makefile.PL for Unicode::Normalize needs
-            # lib/unicore/CombiningClass.pl. Even without a parallel build, we
-            # need a dependency to ensure that it builds. This is a variant of
-            # commit 9f3ef600c170f61e. Putting this for earlier versions gives
-            # us a spot on which to hang the edits below
-            apply_patch(<<'EOPATCH');
-diff --git a/Makefile.SH b/Makefile.SH
-index f61d0db..6097954 100644
---- a/Makefile.SH
-+++ b/Makefile.SH
-@@ -155,10 +155,20 @@ esac
- 
- : Prepare dependency lists for Makefile.
- dynamic_list=' '
-+extra_dep=''
- for f in $dynamic_ext; do
-     : the dependency named here will never exist
-       base=`echo "$f" | sed 's/.*\///'`
--    dynamic_list="$dynamic_list lib/auto/$f/$base.$dlext"
-+    this_target="lib/auto/$f/$base.$dlext"
-+    dynamic_list="$dynamic_list $this_target"
-+
-+    : Parallel makes reveal that we have some interdependencies
-+    case $f in
-+	Math/BigInt/FastCalc) extra_dep="$extra_dep
-+$this_target: lib/auto/List/Util/Util.$dlext" ;;
-+	Unicode/Normalize) extra_dep="$extra_dep
-+$this_target: lib/unicore/CombiningClass.pl" ;;
-+    esac
- done
- 
- static_list=' '
-@@ -987,2 +997,9 @@ n_dummy $(nonxs_ext):	miniperl$(EXE_EXT) preplibrary $(DYNALOADER) FORCE
- 	@$(LDLIBPTH) sh ext/util/make_ext nonxs $@ MAKE=$(MAKE) LIBPERL_A=$(LIBPERL)
-+!NO!SUBS!
-+
-+$spitshell >>Makefile <<EOF
-+$extra_dep
-+EOF
-+
-+$spitshell >>Makefile <<'!NO!SUBS!'
- 
-EOPATCH
-        }
-
-        if ($major == 15 && $^O !~ /^(linux|darwin|.*bsd)$/
-            && extract_from_file('Makefile.SH', qr/^V.* \?= /)) {
-            # Remove the GNU-make-ism (which the BSD makes also support, but
-            # most other makes choke on)
-            apply_patch(<<'EOPATCH');
-diff --git a/Makefile.SH b/Makefile.SH
-index 94952bd..13e9001 100755
---- a/Makefile.SH
-+++ b/Makefile.SH
-@@ -338,8 +338,8 @@ linux*|darwin)
- $spitshell >>$Makefile <<!GROK!THIS!
- # If you're going to use valgrind and it can't be invoked as plain valgrind
- # then you'll need to change this, or override it on the make command line.
--VALGRIND ?= valgrind
--VG_TEST  ?= ./perl -e 1 2>/dev/null
-+VALGRIND = valgrind
-+VG_TEST  = ./perl -e 1 2>/dev/null
- 
- !GROK!THIS!
- 	;;
-EOPATCH
-        }
-
-        if ($major == 11) {
-            if (extract_from_file('patchlevel.h',
-                                  qr/^#include "unpushed\.h"/)) {
-                # I had thought it easier to detect when building one of the 52
-                # commits with the original method of incorporating the git
-                # revision and drop parallel make flags. Commits shown by
-                # git log 46807d8e809cc127^..dcff826f70bf3f64^ ^d4fb0a1f15d1a1c4
-                # However, it's not actually possible to make miniperl for that
-                # configuration as-is, because the file .patchnum is only made
-                # as a side effect of target 'all'
-                # I also don't think that it's "safe" to simply run
-                # make_patchnum.sh before the build. We need the proper
-                # dependency rules in the Makefile to *stop* it being run again
-                # at the wrong time.
-                # This range is important because contains the commit that
-                # merges Schwern's y2038 work.
-                apply_patch(<<'EOPATCH');
-diff --git a/Makefile.SH b/Makefile.SH
-index 9ad8b6f..106e721 100644
---- a/Makefile.SH
-+++ b/Makefile.SH
-@@ -540,9 +544,14 @@ sperl.i: perl.c $(h)
- 
- .PHONY: all translators utilities make_patchnum
- 
--make_patchnum:
-+make_patchnum: lib/Config_git.pl
-+
-+lib/Config_git.pl: make_patchnum.sh
- 	sh $(shellflags) make_patchnum.sh
- 
-+# .patchnum, unpushed.h and lib/Config_git.pl are built by make_patchnum.sh
-+unpushed.h .patchnum: lib/Config_git.pl
-+
- # make sure that we recompile perl.c if .patchnum changes
- perl$(OBJ_EXT): .patchnum unpushed.h
- 
-EOPATCH
-            } elsif (-f '.gitignore'
-                     && extract_from_file('.gitignore', qr/^\.patchnum$/)) {
-                # 8565263ab8a47cda to 46807d8e809cc127^ inclusive.
-                edit_file('Makefile.SH', sub {
-                              my $code = shift;
-                              $code =~ s/^make_patchnum:\n/make_patchnum: .patchnum
-
-.sha1: .patchnum
-
-.patchnum: make_patchnum.sh
-/m;
-                              return $code;
-                          });
-            } elsif (-f 'lib/.gitignore'
-                     && extract_from_file('lib/.gitignore',
-                                          qr!^/Config_git.pl!)
-                     && !extract_from_file('Makefile.SH',
-                                        qr/^uudmap\.h.*:bitcount.h$/)) {
-                # Between commits and dcff826f70bf3f64 and 0f13ebd5d71f8177^
-                edit_file('Makefile.SH', sub {
-                              my $code = shift;
-                              # Bug introduced by 344af494c35a9f0f
-                              # fixed in 0f13ebd5d71f8177
-                              $code =~ s{^(pod/perlapi\.pod) (pod/perlintern\.pod): }
-                                        {$1: $2\n\n$2: }m;
-                              # Bug introduced by efa50c51e3301a2c
-                              # fixed in 0f13ebd5d71f8177
-                              $code =~ s{^(uudmap\.h) (bitcount\.h): }
-                                        {$1: $2\n\n$2: }m;
-
-                              # The rats nest of getting git_version.h correct
-
-                              if ($code =~ s{git_version\.h: stock_git_version\.h
-\tcp stock_git_version\.h git_version\.h}
-                                            {}m) {
-                                  # before 486cd780047ff224
-
-                                  # We probably can't build between
-                                  # 953f6acfa20ec275^ and 8565263ab8a47cda
-                                  # inclusive, but all commits in that range
-                                  # relate to getting make_patchnum.sh working,
-                                  # so it is extremely unlikely to be an
-                                  # interesting bisect target. They will skip.
-
-                                  # No, don't spawn a submake if
-                                  # make_patchnum.sh or make_patchnum.pl fails
-                                  $code =~ s{\|\| \$\(MAKE\) miniperl.*}
-                                            {}m;
-                                  $code =~ s{^\t(sh.*make_patchnum\.sh.*)}
-                                            {\t-$1}m;
-
-                                  # Use an external perl to run make_patchnum.pl
-                                  # because miniperl still depends on
-                                  # git_version.h
-                                  $code =~ s{^\t.*make_patchnum\.pl}
-                                            {\t-$^X make_patchnum.pl}m;
-
-
-                                  # "Truth in advertising" - running
-                                  # make_patchnum generates 2 files.
-                                  $code =~ s{^make_patchnum:.*}{
-make_patchnum: lib/Config_git.pl
-
-git_version.h: lib/Config_git.pl
-
-perlmini\$(OBJ_EXT): git_version.h
-
-lib/Config_git.pl:}m;
-                              }
-                              # Right, now we've corrected Makefile.SH to
-                              # correctly describe how lib/Config_git.pl and
-                              # git_version.h are made, we need to fix the rest
-
-                              # This emulates commit 2b63e250843b907e
-                              # This might duplicate the rule stating that
-                              # git_version.h depends on lib/Config_git.pl
-                              # This is harmless.
-                              $code =~ s{^(?:lib/Config_git\.pl )?git_version\.h: (.* make_patchnum\.pl.*)}
-                                        {git_version.h: lib/Config_git.pl
-
-lib/Config_git.pl: $1}m;
-
-                              # This emulates commits 0f13ebd5d71f8177
-                              # and a04d4598adc57886. It ensures that
-                              # lib/Config_git.pl is built before configpm,
-                              # and that configpm is run exactly once.
-                              $code =~ s{^(\$\(.*?\) )?(\$\(CONFIGPOD\))(: .*? configpm Porting/Glossary)( lib/Config_git\.pl)?}{
-                                  # If present, other files depend on $(CONFIGPOD)
-                                  ($1 ? "$1: $2\n\n" : '')
-                                      # Then the rule we found
-                                      . $2 . $3
-                                          # Add dependency if not there
-                                          . ($4 ? $4 : ' lib/Config_git.pl')
-                              }me;
-
-                              return $code;
-                          });
-            }
-        }
-
-        if ($major < 14) {
-            # Commits dc0655f797469c47 and d11a62fe01f2ecb2
-            edit_file('Makefile.SH', sub {
-                          my $code = shift;
-                          foreach my $ext (qw(Encode SDBM_File)) {
-                              next if $code =~ /\b$ext\) extra_dep=/s;
-                              $code =~ s!(\) extra_dep="\$extra_dep
-\$this_target: .*?" ;;)
-(    esac
-)!$1
-	$ext) extra_dep="\$extra_dep
-\$this_target: lib/auto/Cwd/Cwd.\$dlext" ;;
-$2!;
-                          }
-                          return $code;
-                      });
-        }
-    }
-
-    if ($major == 3) {
-        # This is part of commit f0efd8cf98c95b42:
-        edit_file('Makefile.SH', sub {
-                      my $code = shift;
-                      $code =~ s/<<!NO!SUBS!/<<'!NO!SUBS!'/;
-                      return $code;
-                  });
-    }
-
-    if ($major == 7) {
-        # Remove commits 9fec149bb652b6e9 and 5bab1179608f81d8, which add/amend
-        # rules to automatically run regen scripts that rebuild C headers. These
-        # cause problems because a git checkout doesn't preserve relative file
-        # modification times, hence the regen scripts may fire. This will
-        # obscure whether the repository had the correct generated headers
-        # checked in.
-        # Also, the dependency rules for running the scripts were not correct,
-        # which could cause spurious re-builds on re-running make, and can cause
-        # complete build failures for a parallel make.
-        if (extract_from_file('Makefile.SH',
-                              qr/Writing it this way gives make a big hint to always run opcode\.pl before/)) {
-            apply_commit('70c6e6715e8fec53');
-        } elsif (extract_from_file('Makefile.SH',
-                                   qr/^opcode\.h opnames\.h pp_proto\.h pp\.sym: opcode\.pl$/)) {
-            revert_commit('9fec149bb652b6e9');
-        }
-    }
-
-    if ($^O eq 'darwin' && ($major < 8
-                                || ($major < 10
-                                    && !extract_from_file('ext/DynaLoader/Makefile.PL',
-                                                          qr/sub MY::static /)))) {
-        my $cwd = Cwd::getcwd();
-        my $wrapper = 'miniperl.sh';
-        my $fh = open_or_die($wrapper, '>');
-        print $fh <<"EOT";
-#!/bin/sh
-${aggressive_apple_security}exec $cwd/miniperl "\$\@"
-EOT
-        close_or_die($fh);
-        chmod 0755, $wrapper
-            or die "Couldn't chmod 0755 $wrapper: $!";
-
-        edit_file('ext/util/make_ext', sub {
-                      my $code = shift;
-                      # This is shell expansion syntax
-                      $code =~ s{ (\.\./\$depth/miniperl) }
-                                { $1.sh };
-                      # This is actually the same line as edited above.
-                      # We need this because (yay), without this EU::MM will
-                      # default to searching for a working perl binary
-                      # (sensible plan) but due to macOS stripping
-                      # DYLD_LIBRARY_PATH during system(...), .../miniperl
-                      # (as found from $^X) *isn't* going to work.
-                      $code =~ s{ (Makefile\.PL INSTALLDIRS=perl) }
-                                { $1 PERL=\.\./\$depth/miniperl.sh };
-                      return $code;
-                  });
-    }
-
-    if ($^O eq 'aix' && $major >= 8 && $major < 28
-        && extract_from_file('Makefile.SH', qr!\Q./$(MINIPERLEXP) makedef.pl\E.*aix!)) {
-        # This is a variant the AIX part of commit 72bbce3da5eeffde:
-        # miniperl also needs -Ilib for perl.exp on AIX etc
-        edit_file('Makefile.SH', sub {
-                      my $code = shift;
-                      $code =~ s{(\Q./$(MINIPERLEXP)\E) (makedef\.pl.*aix)}
-                                {$1 -Ilib $2};
-                      return $code;
-                  })
-    }
-    # This is the line before the line we've edited just above:
-    if ($^O eq 'aix' && $major >= 11 && $major <= 15
-        && extract_from_file('makedef.pl', qr/^use Config/)) {
-        edit_file('Makefile.SH', sub {
-                      # The AIX part of commit e6807d8ab22b761c
-                      # It's safe to substitute lib/Config.pm for config.sh
-                      # as lib/Config.pm depends on config.sh
-                      # If the tree is post e6807d8ab22b761c, the substitution
-                      # won't match, which is harmless.
-                      my $code = shift;
-                      $code =~ s{^(perl\.exp:.* )config\.sh(\b.*)}
-                                {$1 . '$(CONFIGPM)' . $2}me;
-                      return $code;
-                  });
-    }
-
-    # There was a bug in makedepend.SH which was fixed in version 96a8704c.
-    # Symptom was './makedepend: 1: Syntax error: Unterminated quoted string'
-    # Remove this if you're actually bisecting a problem related to
-    # makedepend.SH
-    # If you do this, you may need to add in code to correct the output of older
-    # makedepends, which don't correctly filter newer gcc output such as
-    # <built-in>
-
-    # It's the same version in v5.26.0 to v5.34.0
-    # Post v5.34.0, commit 8d469d0ecbd06a99 completely changes how makedepend.SH
-    # interacts with Makefile.SH, meaning that it's not a drop-in upgrade.
-    checkout_file({
-        file => 'makedepend.SH',
-        commit => 'v5.34.0',
-        options => \%options,
-    }) if $major < 26;
-
-    if ($major < 4 && -f 'config.sh'
-        && !extract_from_file('config.sh', qr/^trnl=/)) {
-        # This seems to be necessary to avoid makedepend becoming confused,
-        # and hanging on stdin. Seems that the code after
-        # make shlist || ...here... is never run.
-        edit_file('makedepend.SH', sub {
-                      my $code = shift;
-                      $code =~ s/^trnl='\$trnl'$/trnl='\\n'/m;
-                      return $code;
-                  });
-    }
-}
-
 sub patch_C {
     # This is ordered by $major, as it's likely that different platforms may
     # well want to share code.
@@ -4112,18 +3765,6 @@ EOPATCH
             # (arm64 macOS treats the missing prototypes as errors)
             apply_commit('c73b0699db4d0b8b');
         }
-    }
-}
-
-sub patch_t {
-    if ($^O eq 'darwin') {
-        # This has # $x = `$^X -le "print 'hi there'"`;
-        # and it needs to pass for the automated validation self-test:
-        edit_file('t/base/term.t', sub {
-                      my $code = shift;
-                      $code =~ s/`(\$\^X )/`$aggressive_apple_security$1/;
-                      return $code;
-                  });
     }
 }
 
