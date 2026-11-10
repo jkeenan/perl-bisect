@@ -1403,12 +1403,6 @@ if (exists $options{make}) {
 # which updated to MakeMaker 3.7, which changed from using a hard coded ld
 # in the Makefile to $(LD). On x86_64 Linux the "linker" is gcc.
 
-# AIX supplies a pre-historic patch program, which certainly predates Linux
-# and is probably older than NT. It can't cope with unified diffs. Meanwhile,
-# it's hard enough to get git diff to output context diffs, let alone git show,
-# and nearly all the patches embedded here are unified. So it seems that the
-# path of least resistance is to convert unified diffs to context diffs:
-
 # Not going to assume that system perl is yet new enough to have autodie
 system_or_die('git clean -dxf');
 

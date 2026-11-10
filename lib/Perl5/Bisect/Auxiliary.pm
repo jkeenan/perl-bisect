@@ -165,6 +165,14 @@ sub edit_file {
     close_or_die($fh);
 }
 
+# AIX supplies a pre-historic patch program, which certainly predates Linux
+# and is probably older than NT. It can't cope with unified diffs. Meanwhile,
+# it's hard enough to get git diff to output context diffs, let alone git show,
+# and nearly all the patches embedded here are unified. So it seems that the
+# path of least resistance is to convert unified diffs to context diffs:
+# (Comment preceding definition on process_hunk, introduced in 6fe55cbde in
+# 2011.)
+
 sub process_hunk {
     my ($from_out, $to_out, $has_from, $has_to, $delete, $add) = @_;
     ++$$has_from if $delete;
