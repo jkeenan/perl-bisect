@@ -232,6 +232,21 @@ sub validate {
     return $commit;
 }
 
+# Calling:
+#
+#     perl bin/bisect.pl --validate
+#
+# ... will, starting with blead, configure and build and run tests of base/*.t
+# at tags for production releases as far back as possible on your machine.
+# Output will terminate something like this:
+#
+#     HEAD is now at a5f75d6678 perl 5.002
+#     Successfully validated blead v5.44.0 v5.42.0 v5.40.0 v5.38.0 v5.36.0
+#     v5.34.0 v5.32.0 v5.30.0 v5.28.0 v5.26.0 v5.24.0 v5.22.0 v5.20.0 v5.18.0
+#     v5.16.0 v5.14.0 v5.12.0 v5.10.0 perl-5.8.0 perl-5.6.0 perl-5.005 perl-5.004
+#     perl-5.003 perl-5.002
+#     That took 1440 seconds.
+
 if ($validate) {
     require Text::Wrap;
     my @built = map {validate $_} 'blead', reverse @stable;
@@ -290,6 +305,9 @@ if (defined $start) {
     die "Can't find a suitable start revision to default to.\nTried @tried"
         unless defined $start;
 }
+
+# Only now are we ready to turn things over to 'git bisect':
+say '@ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
 
 system "git bisect start" and die;
 system "git bisect good $start" and die;

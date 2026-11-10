@@ -139,6 +139,25 @@ if ($^O eq 'darwin') {
     $aggressive_apple_security = "DYLD_LIBRARY_PATH=$cwd ";
 }
 
+# If, having built a perl in a git checkout, we were to run:
+#
+#     $ sh -c "cd t && ./perl TEST base/*.t"
+#     t/base/cond ........ ok
+#     t/base/if .......... ok
+#     t/base/lex ......... ok
+#     t/base/num ......... ok
+#     t/base/pat ......... ok
+#     t/base/rs .......... ok
+#     t/base/term ........ ok
+#     t/base/translate ... ok
+#     t/base/while ....... ok
+#     All tests successful.
+#     Elapsed: 0 sec
+#     u=0.01  s=0.00  cu=0.00  cs=0.01  scripts=9  tests=502
+#
+# This is a simple test of whether perl, at a given commit, tag or release, has
+# been built or not.
+
 @ARGV = ('sh', '-c', "cd t && $aggressive_apple_security./perl TEST base/*.t")
     if $options{validate} && !@ARGV;
 
@@ -147,7 +166,7 @@ pod2usage(exitval => 0, verbose => 2) if $options{usage};
 # This needs to be done before the next arguments check, as it's populating
 # @ARGV
 if (defined $target && $target =~ /\.t\z/) {
-    # t/TEST don't have a reliable way to run the test script under valgrind
+    # t/TEST doesn't have a reliable way to run the test script under valgrind
     # The $ENV{VALGRIND} code was only added after v5.8.0, and is more
     # geared to logging than to exiting on failure if errors are found.
     # I guess one could fudge things by replacing the symlink t/perl with a
