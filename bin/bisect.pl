@@ -186,14 +186,15 @@ foreach ($start, $end) {
 }
 
 {
+    # Check for files in the git-checkout directory which (a) are being
+    # tracked but which have been modified or deleted or (b) files which are
+    # not yet being tracked.
+
     my $modified = my @modified = `git ls-files --modified --deleted --others`;
 
     my ($dev0, $ino0) = stat $bisector;
     die "Can't stat $bisector: $!" unless defined $ino0;
-    # FIXME: Line below refers to Porting directory, with which we no longer
-    # want to bother.
-    my ($dev1, $ino1) = stat 'Porting/bisect.pl';
-
+    my ($dev1, $ino1) = stat $bisector;
     my $inplace = defined $dev1 && $dev0 == $dev1 && $ino0 == $ino1;
 
     if ($modified) {
@@ -233,6 +234,7 @@ say 'RUNNER INVOCATION #2';
             and die "Can't run inplace for some reason. :-(";
     }
 }
+say "BBB: bisect-runner.pl: Now: $brunner";
 
 sub validate {
     my $commit = shift;
@@ -297,7 +299,7 @@ else {
 }
 
 # Sanity check the first and last revisions:
-say 'BBB: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV);
+say 'CCC: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV);
 system "git checkout $end" and die;
 say 'RUNNER INVOCATION #4';
 my $ret = system $^X, $brunner, @ARGV;
@@ -305,7 +307,7 @@ die "Runner returned $ret for end revision" unless $ret;
 die "Runner returned $ret for end revision, which is a skip"
     if $ret == 125 * 256;
 
-say 'CCC: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV);
+say 'DDD: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV);
 if (defined $start) {
     system "git checkout $start" and die;
 say 'RUNNER INVOCATION #5';
@@ -337,7 +339,7 @@ say 'RUNNER INVOCATION #6';
 }
 
 # Only now are we ready to turn things over to 'git bisect':
-say 'DDD: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
+say 'EEE: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
 
 system "git bisect start" and die;
 system "git bisect good $start" and die;
