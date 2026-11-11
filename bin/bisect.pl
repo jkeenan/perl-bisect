@@ -77,14 +77,14 @@ if ($module || $with_module) {
 }
 
 # We return to SECONDARY_CHECKOUT_DIR and continue preparations.
-# We will stay here for the balance of this program.
+# We will stay in this directory for the balance of this program.
 
 chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
 
-# In the balance of this program there are 6 possible system calls to
-# bisect-runner.pl.  When bisecting a BBC, for example, only #1, #2, #4 and #5
-# are actually invoked -- but, ultimately, we have to be able to functionally
-# test each of them.
+# In the balance of this program there are 7 possible system calls to
+# bisect-runner.pl.  When bisecting a BBC, for example, only #1, #2, #4, #5
+# and #7 are actually invoked -- but, ultimately, we have to be able to
+# functionally test each of them.
 
 # My hypothesis is that they are differentiated (apart from their different
 # functional objectives) by the state of @ARGV and of %options at the point
@@ -321,8 +321,14 @@ else {
 say 'CCC: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
     if $verbose;
 system "git checkout $end" and die;
+
 say 'RUNNER INVOCATION #4' if $verbose;
 my $ret = system $^X, $brunner, @ARGV;
+
+# This system call to the runner will fail (exit non-zero) if, for example,
+# you invoke this program with a command-line switch not listed above (e.g.,
+# '--check-args').
+
 die "Runner returned $ret for end revision" unless $ret;
 die "Runner returned $ret for end revision, which is a skip"
     if $ret == 125 * 256;
@@ -331,12 +337,23 @@ say 'DDD: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV)
     if $verbose;
 if (defined $start) {
     system "git checkout $start" and die;
-say 'RUNNER INVOCATION #5' if $verbose;
+
+    # If you provide a bad value for '--start' (e.g., a tag we haven't yet
+    # reached, such as 'v5.98.0') then you'll die here because git will throw
+    # an exception like:
+    #
+    # error: pathspec 'v5.98.0' did not match any file(s) known to git
+    #
+    # Possible design flaw:  You will already have spent a minute or so
+    # running the '--end' revision before you discover your '--start' is bad.
+
+    say 'RUNNER INVOCATION #5' if $verbose;
     my $ret = system $^X, $brunner, @ARGV;
     die "Runner returned $ret, not 0 for start revision" if $ret;
 }
 else {
-    # Try to find the earliest version for which the test works
+    # You have not provided a value for the '--start' revision, so you must
+    # try to find the earliest version for which the test works.
     my @tried;
     foreach my $try (@stable) {
         if (`git rev-list -n1 $end ^$try^` eq "") {
@@ -368,6 +385,7 @@ system "git bisect good $start" and die;
 system "git bisect bad $end" and die;
 
 # And now get git bisect to do the hard work:
+say 'RUNNER INVOCATION #7' if $verbose;
 system 'git', 'bisect', 'run', $^X, $brunner, @ARGV and die;
 
 END {
