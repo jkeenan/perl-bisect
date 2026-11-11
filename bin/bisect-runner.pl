@@ -161,7 +161,7 @@ if ($^O eq 'darwin') {
 
 if ($options{validate} && !@ARGV) {
     @ARGV = ('sh', '-c', "cd t && $aggressive_apple_security./perl TEST base/*.t");
-    say 'DDD: @ARGV if \'validate\' requested: ', join(' ' => @ARGV);
+    say 'QQQ: @ARGV if \'validate\' requested: ', join(' ' => @ARGV);
 }
 
 pod2usage(exitval => 0, verbose => 2) if $options{usage};
@@ -277,7 +277,7 @@ if (exists $options{make}) {
 # Not going to assume that system perl is yet new enough to have autodie
 system_or_die('git clean -dxf');
 
-say 'EEE: @ARGV before determination of target: ', join(' ' => @ARGV);
+say 'RRR: @ARGV before determination of target: ', join(' ' => @ARGV);
 
 if (!defined $target) {
     match_and_exit(undef, [@ARGV], $match) if $match;
@@ -406,6 +406,8 @@ if ($options{module} || $options{'with-module'} || $options{'test-module'})
   push @ARGS, "-Uversiononly", "-Dinstallusrbinperl=n";
 }
 
+say 'SSS: @ARGV after \'module\' analysis: ', join(' ' => @ARGV);
+
 # If a file in MANIFEST is missing, Configure asks if you want to
 # continue (the default being 'n'). With stdin closed or /dev/null,
 # it exits immediately and the check for config.sh below will skip.
@@ -444,7 +446,7 @@ if ($target =~ /config\.s?h/) {
 
     skip("could not build $target") unless -f $target;
 
-    say 'FFF: @ARGV if target is config.sh: ', join(' ' => @ARGV);
+    say 'TTT: @ARGV if target is config.sh: ', join(' ' => @ARGV);
     run_report_and_exit(\%options, @ARGV);
 }
 elsif (!-f 'config.sh') {
@@ -461,7 +463,7 @@ elsif (!-f 'config.sh') {
 }
 
 force_manifest_cleanup($missing, $created_dirs)
-        if $missing;
+    if $missing;
 
 if($options{'force-regen'}
    && extract_from_file('Makefile', qr/\bregen_headers\b/)) {
@@ -589,7 +591,10 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
   my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
 
   if ($options{module} || $options{'test-module'}) {
-    say "GGG: arguments in case of 'module' or 'test-module':  ", join(' ' => @cpanshell, $shellcmd);
+      #say "UUU: arguments in case of 'module' or 'test-module':  ", join(' ' => @cpanshell, $shellcmd);
+    say "UUU: arguments in case of 'module' or 'test-module':";
+    say "UUU:   cpanshell:     ", join(' ' => @cpanshell);
+    say "UUU:   shell command: $shellcmd";
     run_report_and_exit(\%options, @cpanshell, $shellcmd);
   } else {
     my $ret = run_with_options({setprgp => $options{setpgrp},
@@ -654,7 +659,7 @@ if (exists $Config{ldlibpthname}) {
     }
 }
 
-say 'HHH: @ARGV in fall-through case: ', join(' ' => @ARGV);
+say 'VVV: @ARGV in fall-through case: ', join(' ' => @ARGV);
 run_report_and_exit(\%options, @ARGV);
 
 =head1 NAME
