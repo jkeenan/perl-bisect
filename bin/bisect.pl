@@ -64,7 +64,8 @@ if ($module || $with_module) {
     die "--cpan-config-dir: $c does not exist\n" unless -e $c;
 
     unshift @ARGV, '--cpan-config-dir', $cpan_config_dir;
-  } else {
+  }
+  else {
     $need_cpan_config = 1;
   }
 }
@@ -104,11 +105,13 @@ if (!defined $jobs &&
         while (<$fh>) {
             ++$cpus if /^processor\s+:\s+\d+$/;
         }
-    } elsif (-x '/sbin/sysctl' || -x '/usr/sbin/sysctl') {
+    }
+    elsif (-x '/sbin/sysctl' || -x '/usr/sbin/sysctl') {
         my $sysctl =  '/sbin/sysctl';
         $sysctl =  "/usr$sysctl" unless -x $sysctl;
         $cpus =  $1 if `$sysctl hw.ncpu` =~ /^hw\.ncpu: (\d+)$/;
-    } elsif (-x '/usr/bin/getconf') {
+    }
+    elsif (-x '/usr/bin/getconf') {
         $cpus = $1 if `/usr/bin/getconf _NPROCESSORS_ONLN` =~ /^(\d+)$/;
     }
     $jobs = defined $cpus ? $cpus + 1 : 2;
@@ -150,7 +153,8 @@ unshift @stable, qw(perl-5.005 perl-5.6.0 perl-5.8.0);
     if (defined $dev_C && defined $dev_c
         && $dev_C == $dev_c && $ino_C == $ino_c) {
         print "You seem to be on a case-insensitive file system.\n\n";
-    } else {
+    }
+    else {
         unshift @stable, qw(perl-5.002 perl-5.003 perl-5.004)
     }
 }
@@ -165,7 +169,8 @@ if (!defined $end) {
         # Else use whichever is newer - HEAD, or the most recent stable tag.
         if (`git rev-list -n1 HEAD ^$stable[-1]` eq "") {
             $end = pop @stable;
-        } else {
+        }
+        else {
             $end = 'HEAD';
         }
     }
@@ -279,13 +284,15 @@ my $git_version = `git --version`;
 if (defined $git_version
     && $git_version =~ /\Agit version (\d+\.\d+\.\d+)(.*)/) {
     $git_version = eval "v$1";
-} else {
+}
+else {
     $git_version = v0.0.0;
 }
 
 if ($git_version ge v1.6.6) {
     system "git bisect reset HEAD" and die;
-} else {
+}
+else {
     system "git bisect reset" and die;
 }
 
@@ -304,7 +311,8 @@ if (defined $start) {
 say 'RUNNER INVOCATION #5';
     my $ret = system $^X, $brunner, @ARGV;
     die "Runner returned $ret, not 0 for start revision" if $ret;
-} else {
+}
+else {
     # Try to find the earliest version for which the test works
     my @tried;
     foreach my $try (@stable) {

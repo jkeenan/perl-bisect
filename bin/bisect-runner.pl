@@ -111,7 +111,8 @@ my $rv = GetOptions(
         my (undef, $val) = @_;
         if ($val =~ /\A([^=]+)=(.*)/s) {
             $defines{$1} = length $2 ? $2 : "\0";
-        } else {
+        }
+        else {
             $defines{$val} = '';
         }
     },
@@ -265,7 +266,8 @@ if (exists $options{make}) {
     if (!exists $defines{make}) {
         $defines{make} = $options{make};
     }
-} else {
+}
+else {
     $options{make} = 'make';
 }
 
@@ -282,7 +284,8 @@ say 'RRR: @ARGV before determination of target: ', join(' ' => @ARGV);
 if (!defined $target) {
     match_and_exit(undef, [@ARGV], $match) if $match;
     $target = 'test_prep';
-} elsif ($target eq 'none') {
+}
+elsif ($target eq 'none') {
     match_and_exit(undef, [@ARGV], $match) if $match;
     run_report_and_exit(\%options, @ARGV);
 }
@@ -315,7 +318,8 @@ if ($major < 10
     # Skip DB_File, unless we're invoked with an explicit -Unoextensions
     if (!exists $defines{noextensions}) {
         $defines{noextensions} = 'DB_File';
-    } elsif (defined $defines{noextensions}) {
+    }
+    elsif (defined $defines{noextensions}) {
         $defines{noextensions} .= ' DB_File';
     }
     ++$unfixable_db_file;
@@ -384,11 +388,14 @@ foreach my $key (sort keys %defines) {
     my $val = $defines{$key};
     if (ref $val) {
         push @ARGS, "-D$key=@$val";
-    } elsif (!defined $val) {
+    }
+    elsif (!defined $val) {
         push @ARGS, "-U$key";
-    } elsif (!length $val) {
+    }
+    elsif (!length $val) {
         push @ARGS, "-D$key";
-    } else {
+    }
+    else {
         $val = "" if $val eq "\0";
         push @ARGS, "-D$key=$val";
     }
@@ -581,9 +588,11 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
   my $install = join ",", map { "'$_'" } @m;
   if ($just_testing) {
     $install = "test($install)";
-  } elsif ($options{'no-module-tests'}) {
+  }
+  elsif ($options{'no-module-tests'}) {
     $install = "notest('install',$install)";
-  } else {
+  }
+  else {
     $install = "install($install)";
   }
   my $last = $m[-1];
@@ -596,7 +605,8 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
     say "UUU:   cpanshell:     ", join(' ' => @cpanshell);
     say "UUU:   shell command: $shellcmd";
     run_report_and_exit(\%options, @cpanshell, $shellcmd);
-  } else {
+  }
+  else {
     my $ret = run_with_options({setprgp => $options{setpgrp},
                                 timeout => $options{timeout},
                                }, @cpanshell, $shellcmd);
@@ -654,7 +664,8 @@ if (exists $Config{ldlibpthname}) {
     my $cwd = Cwd::getcwd();
     if (defined $ENV{$varname}) {
         $ENV{$varname} = $cwd . $Config{path_sep} . $ENV{$varname};
-    } else {
+    }
+    else {
         $ENV{$varname} = $cwd;
     }
 }
