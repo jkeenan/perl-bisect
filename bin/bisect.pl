@@ -38,20 +38,26 @@ chdir $cwd or die "Unable to change back to $cwd: $!";
 my $bisector = "$cwd/$0";
 my $brunner = "$cwd/bin/bisect-runner.pl";
 die "Can't find bisect runner $brunner" unless -f $brunner;
-say "bisect.pl:        $bisector";
-say "bisect-runner.pl: $brunner";
 
 my ($start, $end, $validate, $usage, $bad, $jobs, $make, $gold,
-    $module, $with_module);
+    $module, $with_module, $verbose);
 
 my $need_cpan_config;
 my $cpan_config_dir;
 
-$bad = !GetOptions('start=s' => \$start, 'end=s' => \$end,
-                   'jobs|j=i' => \$jobs, 'make=s' => \$make, 'gold=s' => \$gold,
-                   validate => \$validate, 'usage|help|?' => \$usage,
-                   'module=s' => \$module, 'with-module=s' => \$with_module,
-                   'cpan-config-dir=s' => \$cpan_config_dir);
+$bad = !GetOptions(
+    'start=s'               => \$start,
+    'end=s'                 => \$end,
+    'jobs|j=i'              => \$jobs,
+    'make=s'                => \$make,
+    'gold=s'                => \$gold,
+    validate                => \$validate,
+    'usage|help|?'          => \$usage,
+    'module=s'              => \$module,
+    'with-module=s'         => \$with_module,
+    'cpan-config-dir=s'     => \$cpan_config_dir,
+    'verbose|v'             => \$verbose,
+);
 unshift @ARGV, '--help' if $bad || $usage;
 unshift @ARGV, '--validate' if $validate;
 
@@ -76,9 +82,9 @@ if ($module || $with_module) {
 chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
 
 # In the balance of this program there are 6 possible system calls to
-# bisect-runner.pl.  When bisecting a BBC, for example, only #1, #4 and #5 are
-# actually invoked -- but, ultimately, we have to be able to functionally test
-# each of them.
+# bisect-runner.pl.  When bisecting a BBC, for example, only #1, #2, #4 and #5
+# are actually invoked -- but, ultimately, we have to be able to functionally
+# test each of them.
 
 # My hypothesis is that they are differentiated (apart from their different
 # functional objectives) by the state of @ARGV and of %options at the point
@@ -87,8 +93,16 @@ chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
 # Note further that bisect-runner.pl has its own call to GetOptions() to
 # process the then-current state of the command-line.
 
-say 'RUNNER INVOCATION #1';
-say 'AAA: @ARGV before first possible invocation of bisect-runner.pl: ', join(' ' => @ARGV);
+if ($verbose) {
+    say "bisect.pl:        $bisector";
+    say "bisect-runner.pl: $brunner";
+    say 'RUNNER INVOCATION #1';
+    say 'AAA: @ARGV before first possible invocation of bisect-runner.pl: ', join(' ' => @ARGV);
+}
+
+# Note that we're calling the bisect-runner here with 2 command-line switches
+# that are NOT listed in this program's invocation of GetOptions() (above) but
+# ARE processed by the runner's invocation of GetOptions().
 
 system $^X, $brunner, '--check-args', '--check-shebang', @ARGV and exit 255;
 exit 255 if $bad;
@@ -229,12 +243,17 @@ foreach ($start, $end) {
         chmod 0500, $toname
             or die "Can't chmod 0500, '$toname': $!";
         $brunner = $toname;
-say 'RUNNER INVOCATION #2';
+
+        say 'RUNNER INVOCATION #2' if $verbose;
+
+        # Once again, '--check-args' is a switch for the runner, not for this
+        # program itself.
+
         system $^X, $brunner, '--check-args', @ARGV
             and die "Can't run inplace for some reason. :-(";
     }
 }
-say "BBB: bisect-runner.pl: Now: $brunner";
+say "BBB: bisect-runner.pl: Now: $brunner" if $verbose;
 
 sub validate {
     my $commit = shift;
@@ -248,7 +267,7 @@ sub validate {
     }
     print "Testing $commit...\n";
     system "git checkout $commit </dev/null" and die;
-say 'RUNNER INVOCATION #3';
+    say 'RUNNER INVOCATION #3' if $verbose;
     my $ret = system $^X, $brunner, '--no-clean', @ARGV;
     die "Runner returned $ret, not 0 for revision $commit" if $ret;
     system 'git clean -dxf </dev/null' and die;
@@ -299,18 +318,20 @@ else {
 }
 
 # Sanity check the first and last revisions:
-say 'CCC: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV);
+say 'CCC: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
+    if $verbose;
 system "git checkout $end" and die;
-say 'RUNNER INVOCATION #4';
+say 'RUNNER INVOCATION #4' if $verbose;
 my $ret = system $^X, $brunner, @ARGV;
 die "Runner returned $ret for end revision" unless $ret;
 die "Runner returned $ret for end revision, which is a skip"
     if $ret == 125 * 256;
 
-say 'DDD: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV);
+say 'DDD: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV)
+    if $verbose;
 if (defined $start) {
     system "git checkout $start" and die;
-say 'RUNNER INVOCATION #5';
+say 'RUNNER INVOCATION #5' if $verbose;
     my $ret = system $^X, $brunner, @ARGV;
     die "Runner returned $ret, not 0 for start revision" if $ret;
 }
@@ -326,7 +347,7 @@ else {
             next;
         }
         system "git checkout $try" and die;
-say 'RUNNER INVOCATION #6';
+        say 'RUNNER INVOCATION #6' if $verbose;
         my $ret = system $^X, $brunner, @ARGV;
         if (!$ret) {
             $start = $try;
@@ -339,7 +360,8 @@ say 'RUNNER INVOCATION #6';
 }
 
 # Only now are we ready to turn things over to 'git bisect':
-say 'EEE: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
+say 'EEE: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV)
+    if $verbose;
 
 system "git bisect start" and die;
 system "git bisect good $start" and die;
