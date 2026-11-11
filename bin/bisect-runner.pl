@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
+use 5.14.0;
 
 use Getopt::Long qw(:config bundling no_auto_abbrev);
 use Pod::Usage;
@@ -158,8 +159,10 @@ if ($^O eq 'darwin') {
 # This is a simple test of whether perl, at a given commit, tag or release, has
 # been built or not.
 
-@ARGV = ('sh', '-c', "cd t && $aggressive_apple_security./perl TEST base/*.t")
-    if $options{validate} && !@ARGV;
+if ($options{validate} && !@ARGV) {
+    @ARGV = ('sh', '-c', "cd t && $aggressive_apple_security./perl TEST base/*.t");
+    say 'DDD: @ARGV if \'validate\' requested: ', join(' ' => @ARGV);
+}
 
 pod2usage(exitval => 0, verbose => 2) if $options{usage};
 
@@ -273,6 +276,8 @@ if (exists $options{make}) {
 
 # Not going to assume that system perl is yet new enough to have autodie
 system_or_die('git clean -dxf');
+
+say 'EEE: @ARGV before determination of target: ', join(' ' => @ARGV);
 
 if (!defined $target) {
     match_and_exit(undef, [@ARGV], $match) if $match;
@@ -439,6 +444,7 @@ if ($target =~ /config\.s?h/) {
 
     skip("could not build $target") unless -f $target;
 
+    say 'FFF: @ARGV if target is config.sh: ', join(' ' => @ARGV);
     run_report_and_exit(\%options, @ARGV);
 }
 elsif (!-f 'config.sh') {
@@ -583,6 +589,7 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
   my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
 
   if ($options{module} || $options{'test-module'}) {
+    say "GGG: arguments in case of 'module' or 'test-module':  ", join(' ' => @cpanshell, $shellcmd);
     run_report_and_exit(\%options, @cpanshell, $shellcmd);
   } else {
     my $ret = run_with_options({setprgp => $options{setpgrp},
@@ -647,6 +654,7 @@ if (exists $Config{ldlibpthname}) {
     }
 }
 
+say 'HHH: @ARGV in fall-through case: ', join(' ' => @ARGV);
 run_report_and_exit(\%options, @ARGV);
 
 =head1 NAME

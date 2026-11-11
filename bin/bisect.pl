@@ -73,6 +73,7 @@ if ($module || $with_module) {
 # We will stay here for the balance of this program.
 
 chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
+say 'AAA: @ARGV before first possible invocation of bisect-runner.pl: ', join(' ' => @ARGV);
 
 system $^X, $brunner, '--check-args', '--check-shebang', @ARGV and exit 255;
 exit 255 if $bad;
@@ -273,6 +274,7 @@ if ($git_version ge v1.6.6) {
 }
 
 # Sanity check the first and last revisions:
+say 'BBB: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV);
 system "git checkout $end" and die;
 my $ret = system $^X, $brunner, @ARGV;
 die "Runner returned $ret for end revision" unless $ret;
@@ -307,7 +309,7 @@ if (defined $start) {
 }
 
 # Only now are we ready to turn things over to 'git bisect':
-say '@ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
+say 'CCC: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV);
 
 system "git bisect start" and die;
 system "git bisect good $start" and die;
