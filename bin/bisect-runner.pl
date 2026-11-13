@@ -7,6 +7,10 @@ use Pod::Usage;
 use Config;
 use File::Temp qw(tempdir);
 use File::Spec;
+# Code smell:  We have to retain this 'use lib' here because in production,
+# this program is invoked by bisect.pl, whose @INC in turn only works because
+# we're calling '-I${MYLIB}' on the command-line.  That command-line setting
+# does not extend to this program; hence the need for 'use lib' here.
 use lib ("$ENV{HOME}/gitwork/noncore/perl-bisect/lib");
 use Perl5::Bisect::Auxiliary qw(
     croak_255

@@ -35,6 +35,33 @@ require Exporter;
 
 Perl5::Bisect::Patching - Patching, editing, faking subroutines for Perl5::Bisect
 
+=head1 SYNOPSIS
+
+    use Perl5::Bisect::Patching qw(
+        force_manifest
+        force_manifest_cleanup
+        apply_fixups
+        fake_noextensions
+        patch_ext
+        patch_SH
+        patch_t
+        patch_hints
+        patch_Configure
+        patch_C
+    );
+
+=head1 DESCRIPTION
+
+This module exports on request only subroutines used in
+F<bin/bisect-runner.pl>.  These subroutines derive from the subroutines
+defined in F<Porting/bisect-runner.pl> in the Perl 5 core distribution.  These
+subroutines are grouped together in this package because they are all
+concerned with preparing the files found at a particular F<git> commit in the
+core distribution for use in a bisection.  That preparation may require
+patching F<MANIFEST>, F<Configure>, F<hints/*.sh>, etc.
+
+This module uses other subroutines which are also used directly by F<bin/bisect-runner.pl>.  Those other subroutines are defined in, and exported by, F<Perl::Bisect::Auxiliary>.
+
 =cut
 
 ############################################################################
@@ -42,6 +69,8 @@ Perl5::Bisect::Patching - Patching, editing, faking subroutines for Perl5::Bisec
 # Patching, editing and faking routines only below here.
 #
 ############################################################################
+
+=head1 SUBROUTINES
 
 sub fake_noextensions {
     print "ZZZ: fake_noextensions\n";
@@ -58,6 +87,33 @@ sub fake_noextensions {
                   return join "\n", @lines;
               });
 }
+
+=head2 C<force_manifest>
+
+=over 4
+
+=item * Purpose
+
+Identify defects in the F<MANIFEST> that may impact bisection.
+
+=item * Arguments
+
+    my ($missing, $created_dirs) = force_manifest();
+
+No arguments needed.
+
+=item * Return Value
+
+Two array references.  This first holds a list of files missing from the
+F<MANIFEST> in the directory where bisection is being conducted.  The second
+is to a list of directories created in TK.
+
+=item * Comment
+
+In production, this subroutine is only run if the switch C<--force-manifest>
+has been provided on the command line.
+
+=back
 
 sub force_manifest {
     print "ZZZ: force_manifest\n";
@@ -88,6 +144,22 @@ sub force_manifest {
     }
     return \@missing, \@created_dirs;
 }
+
+=head2 C<force_manifest_cleanup>
+
+=over 4
+
+=item * Purpose
+
+=item * Arguments
+
+=item * Return Value
+
+=item * Comment
+
+=back
+
+=cut
 
 sub force_manifest_cleanup {
     print "ZZZ: force_manifest_cleanup\n";
