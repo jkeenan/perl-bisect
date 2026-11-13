@@ -12,7 +12,9 @@ my %WriteMakefileArgs = (
     AUTHOR              => 'James E Keenan (jkeenan@pobox.com)',
     INSTALLDIRS         => ($] < 5.011 ? 'perl' : 'site'),
     PREREQ_PM           => {
-        'Test::Simple' => 0.44,
+        'Test::Simple'  => 0.44,
+        'Data::Dump'    => 0,
+        'File::Touch'   => 0.12,
     },
     ( eval { ExtUtils::MakeMaker->VERSION(6.46) } ? () : ( META_MERGE => {
         'meta-spec' => { version => 2 },
