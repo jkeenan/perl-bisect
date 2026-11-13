@@ -32,7 +32,11 @@ my $mani = 'MANIFEST';
 
     my ($missing, $created_dirs) = force_manifest();
     is(ref $missing, 'ARRAY', "force_manifest() returned array ref first");
+    is(@$missing, 0, "Healthy $mani has no missing files");
     is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
+    is(@$created_dirs, 0, "No created_dirs");
+    # NEXT: Need to study force_manifest() to see what an "unhealthy" one
+    # would return.
 }
 
 done_testing();
