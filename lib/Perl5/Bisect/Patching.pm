@@ -115,6 +115,8 @@ has been provided on the command line.
 
 =back
 
+=cut
+
 sub force_manifest {
     print "ZZZ: force_manifest\n";
     my (@missing, @created_dirs);
