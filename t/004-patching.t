@@ -70,9 +70,9 @@ sub mock_repository {
 
     my ($missing, $created_dirs) = force_manifest();
     is(ref $missing, 'ARRAY', "force_manifest() returned array ref first");
-    pp $missing;
+    is(@$missing, 0, "Clean MANIFEST should have no missing files");
     is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
-    pp $created_dirs;
+    is(@$created_dirs, 0, "Clean MANIFEST should have no created_dirs");
 
     chdir $startdir or croak "Unable to change back to starting directory";
     my $removed_count = rmtree($repo, { verbose => 0, safe => 1 });

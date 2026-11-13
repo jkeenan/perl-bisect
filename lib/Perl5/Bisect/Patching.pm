@@ -73,7 +73,7 @@ This module uses other subroutines which are also used directly by F<bin/bisect-
 =head1 SUBROUTINES
 
 sub fake_noextensions {
-    print "ZZZ: fake_noextensions\n";
+    #print "ZZZ: fake_noextensions\n";
     my $defines = shift;
     edit_file('config.sh', sub {
                   my @lines = split /\n/, shift;
@@ -118,7 +118,7 @@ has been provided on the command line.
 =cut
 
 sub force_manifest {
-    print "ZZZ: force_manifest\n";
+    #print "ZZZ: force_manifest\n";
     my (@missing, @created_dirs);
     my $fh = open_or_die('MANIFEST');
     while (<$fh>) {
@@ -164,7 +164,7 @@ sub force_manifest {
 =cut
 
 sub force_manifest_cleanup {
-    print "ZZZ: force_manifest_cleanup\n";
+    #print "ZZZ: force_manifest_cleanup\n";
     my ($missing, $created_dirs) = @_;
     # This is probably way too paranoid:
     my @errors;
@@ -195,7 +195,7 @@ sub force_manifest_cleanup {
 }
 
 sub patch_Configure {
-    print "ZZZ: patch_Configure\n";
+    #print "ZZZ: patch_Configure\n";
     my $major = shift;
     if ($major < 1) {
         if (extract_from_file('Configure',
@@ -1001,7 +1001,7 @@ EOPATCH
 }
 
 sub patch_hints {
-    print "ZZZ: patch_hints\n";
+    #print "ZZZ: patch_hints\n";
     my ($options, $case_insensitive, $major) = @_;
     if ($^O eq 'freebsd') {
         # There are rather too many version-specific FreeBSD hints fixes to
@@ -1314,7 +1314,7 @@ EOT
 }
 
 sub patch_SH {
-    print "ZZZ: patch_SH\n";
+    #print "ZZZ: patch_SH\n";
     my ($aggressive_apple_security, $major, $options) = @_;
     # Cwd.xs added in commit 0d2079faa739aaa9. Cwd.pm moved to ext/ 8 years
     # later in commit 403f501d5b37ebf0
@@ -1664,7 +1664,7 @@ EOT
 }
 
 sub patch_C {
-    print "ZZZ: patch_C\n";
+    #print "ZZZ: patch_C\n";
     my $major = shift;
     # This is ordered by $major, as it's likely that different platforms may
     # well want to share code.
@@ -2530,7 +2530,7 @@ EOPATCH
 }
 
 sub patch_ext {
-    print "ZZZ: patch_ext\n";
+    #print "ZZZ: patch_ext\n";
     my ($major, $unfixable_db_file, $options) = @_;
     if (-f 'ext/POSIX/Makefile.PL'
         && extract_from_file('ext/POSIX/Makefile.PL',
@@ -2829,7 +2829,7 @@ EOPATCH
 }
 
 sub patch_t {
-    print "ZZZ: patch_t\n";
+    #print "ZZZ: patch_t\n";
     my $aggressive_apple_security = shift;
     if ($^O eq 'darwin') {
         # This has # $x = `$^X -le "print 'hi there'"`;
@@ -2843,7 +2843,7 @@ sub patch_t {
 }
 
 sub apply_fixups {
-    print "ZZZ: apply_fixups\n";
+    #print "ZZZ: apply_fixups\n";
     my $fixups = shift;
     return unless $fixups;
     foreach my $file (@$fixups) {
