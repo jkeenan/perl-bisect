@@ -15,6 +15,8 @@ my %WriteMakefileArgs = (
         'Test::Simple'  => 0.44,
         'Data::Dump'    => 0,
         'File::Touch'   => 0.12,
+        'Path::Tiny'    => 0,
+        'Tie::File'     => 0,
     },
     ( eval { ExtUtils::MakeMaker->VERSION(6.46) } ? () : ( META_MERGE => {
         'meta-spec' => { version => 2 },

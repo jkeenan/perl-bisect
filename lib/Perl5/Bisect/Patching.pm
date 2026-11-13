@@ -137,12 +137,37 @@ sub force_manifest {
         while (@parts) {
             $path .= '/' . shift @parts;
             next if -d $path;
-            mkdir $path, 0700 or die_255("Can't create $path: $!");
+            # In core, this was 0700
+            mkdir $path, 0711 or die_255("Can't create $path: $!");
             unshift @created_dirs, $path;
         }
         $fh = open_or_die($pathname, '>');
         close_or_die($fh);
-        chmod 0, $pathname or die_255("Can't chmod 0 $pathname: $!");
+
+        # Why do we want to chmod to 0 here?
+        # Why not something like 0664 as in core distribution?
+
+        # chmod 0, $pathname or die_255("Can't chmod 0 $pathname: $!");
+
+        # commit 67382a3b09f476ec932adab80ae6b37134864f9b
+        # Author:     Nicholas Clark <nick@ccl4.org>
+        # AuthorDate: Sat Oct 1 16:23:41 2011 +0200
+        # Commit:     Nicholas Clark <nick@ccl4.org>
+        # CommitDate: Sat Oct 1 16:31:06 2011 +0200
+        #
+        #     Add options --force-manifest and --test-build to bisect.pl
+        #
+        #     --force-manifest touches any files in MANIFEST that are missing. This avoids
+        #     hanging on 5.004 or earlier (where Configure's stdin is a tty) when Configure
+        #     detects the missing files and asks you if you want to stop. It's also useful
+        #     on 5.005 or later if you don't want to treat missing files as a "skip".
+        #     --test-build changes behaviour to treat failing to build the target exectuable
+        #     as a "fail", instead of a "skip".
+        #
+        # But there's no specific explanation for 'chmod 0'!
+        # Let's try something more normal
+
+        chmod 0664, $pathname or die_255("Can't chmod 0664 $pathname: $!");
     }
     return \@missing, \@created_dirs;
 }

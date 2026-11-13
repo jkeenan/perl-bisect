@@ -11,8 +11,10 @@ use File::Copy;
 use File::Path qw(mkpath rmtree);
 use File::Spec;
 use File::Temp qw(tempdir tempfile);
+use Tie::File;
 use Data::Dump qw(dd pp);
 use File::Touch 0.12;
+use Path::Tiny;
 
 my $startdir = cwd();
 my $checkout_dir = $ENV{SECONDARY_CHECKOUT_DIR};
@@ -74,9 +76,35 @@ sub mock_repository {
     is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
     is(@$created_dirs, 0, "Clean MANIFEST should have no created_dirs");
 
+    # Now what happens when the MANIFEST lacks a file or directory/file?
+
+    my @not_real = ( qw|
+        ./foobar
+        ./my/beloved/foobar
+    | );
+
+    my @lines = ();
+    tie @lines, 'Tie::File', $mani or croak "Unable to tie to MANIFEST";
+    my $manifest_lines_orig = scalar @lines;
+    push @lines, $_ for @not_real;
+    untie @lines or croak "Unable to untie from MANIFEST";
+
+    ($missing, $created_dirs) = force_manifest();
+
+    my $file = Path::Tiny::path($mani);
+    my @manifest_lines_revised = $file->lines;
+    is ( scalar @manifest_lines_revised,
+        ($manifest_lines_orig + scalar @not_real),
+        "MANIFEST has been augmented by " . scalar @not_real . " lines"
+    );
+
+    is(ref $missing, 'ARRAY', "force_manifest() returned array ref first");
+    is(@$missing, 2, "2 files not found in MANIFEST");
+    is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
+    is(@$created_dirs, 2, "2 subdirectories not represented in MANIFEST");
+
     chdir $startdir or croak "Unable to change back to starting directory";
     my $removed_count = rmtree($repo, { verbose => 0, safe => 1 });
-
 }
 
 done_testing();
