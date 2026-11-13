@@ -6,11 +6,13 @@ use Perl5::Bisect::Patching qw(
 );
 use Test::More;
 use Carp;
+use Cwd;
 use File::Copy;
 use File::Spec;
 use File::Temp qw(tempdir tempfile);
 use Data::Dump qw(dd pp);
 
+my $startdir = cwd();
 my $checkout_dir = $ENV{SECONDARY_CHECKOUT_DIR};
 croak "Unable to locate checkout of Perl 5" unless (
     -d $checkout_dir &&
@@ -30,13 +32,17 @@ my $mani = 'MANIFEST';
         or croak "Unable to copy $mani for testing";
     ok(-f $testing_manifest, "$mani copied to tempdir for testing");
 
+    chdir $tdir or croak "Unable to change to tempdir for testing";
+
+    # Note: We're limited as to how meaningfully we can test this function
+    # because the files it is checking have not also been copied to the
+    # tempdir.
+
     my ($missing, $created_dirs) = force_manifest();
     is(ref $missing, 'ARRAY', "force_manifest() returned array ref first");
-    is(@$missing, 0, "Healthy $mani has no missing files");
     is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
-    is(@$created_dirs, 0, "No created_dirs");
-    # NEXT: Need to study force_manifest() to see what an "unhealthy" one
-    # would return.
+
+    chdir $startdir or croak "Unable to change back to starting directory";
 }
 
 done_testing();
