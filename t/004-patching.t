@@ -103,6 +103,11 @@ sub mock_repository {
     is(ref $created_dirs, 'ARRAY', "force_manifest() returned array ref second");
     is(@$created_dirs, 2, "2 subdirectories not represented in MANIFEST");
 
+    # force_manifest_cleanup wants to call Auxiliary::skip and then wants to
+    # perform a git-clean ... which will only work in a real git checkout
+    # not a mock checkout like we have here.
+    #force_manifest_cleanup($missing, $created_dirs);
+
     chdir $startdir or croak "Unable to change back to starting directory";
     my $removed_count = rmtree($repo, { verbose => 0, safe => 1 });
 }

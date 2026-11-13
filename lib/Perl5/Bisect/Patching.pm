@@ -14,6 +14,7 @@ use Perl5::Bisect::Auxiliary qw(
     apply_commit
     checkout_file
 );
+#clean
 our ( $VERSION, @ISA, @EXPORT_OK );
 $VERSION = "0.01";
 require Exporter;
@@ -94,24 +95,37 @@ sub fake_noextensions {
 
 =item * Purpose
 
-Identify defects in the F<MANIFEST> that may impact bisection.
+Identify files found in the F<MANIFEST> which are not actually present in the
+repository and touches them into existence.
 
 =item * Arguments
 
     my ($missing, $created_dirs) = force_manifest();
 
-No arguments needed.
+No arguments needed (because it works directly from F<MANIFEST> and the
+contents of your checkout).
 
 =item * Return Value
 
-Two array references.  This first holds a list of files missing from the
-F<MANIFEST> in the directory where bisection is being conducted.  The second
-is to a list of directories created in TK.
+Two array references.  This first holds a list of files cited in F<MANIFEST>
+but missing from the repository at the point bisection is beginning -- files
+which are created by invoking this subroutine.
+
+The second is a reference to a list of directories created when touching the
+files listed in the first reference.
 
 =item * Comment
 
 In production, this subroutine is only run if the switch C<--force-manifest>
 has been provided on the command line.
+
+According to a F<git> commit message from Nicholas Clark in
+67382a3b09f476ec932adab80ae6b37134864f9b in 2011: I<--force-manifest touches
+any files in MANIFEST that are missing. This avoids hanging on 5.004 or
+earlier (where Configure's stdin is a tty) when Configure detects the missing
+files and asks you if you want to stop. It's also useful on 5.005 or later if
+you don't want to treat missing files as a "skip".>  It's not clear that you
+would need this switch much when bisecting perl in recent years.
 
 =back
 
@@ -180,7 +194,16 @@ sub force_manifest {
 
 =item * Arguments
 
+    force_manifest_cleanup($missing, $created_dirs);
+
+Takes two array references as arguments -- those being the arrayrefs returned
+by C<force_manifest()>.
+
 =item * Return Value
+
+Implicitly returns true value upon successful operation, but will cause
+bisection to terminate with a non-zero value if files or directories created
+by C<force_manifest()> could not be removed.
 
 =item * Comment
 
@@ -215,8 +238,7 @@ sub force_manifest_cleanup {
     foreach my $dir (@$created_dirs) {
         rmdir $dir or die_255("Can't rmdir $dir: $!");
     }
-    skip("@errors")
-        if @errors;
+    skip("@errors") if @errors;
 }
 
 sub patch_Configure {

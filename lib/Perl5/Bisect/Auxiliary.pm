@@ -22,6 +22,7 @@ require Exporter;
     patch_from_commit
     apply_commit
     revert_commit
+    clean
     skip
     check_shebang
     checkout_file
@@ -349,9 +350,24 @@ sub revert_commit {
     apply_patch($patch, "revert $commit", @files ? " for @files" : '');
 }
 
+sub clean {
+    # This subroutine designates the current commit to be skip-ped by git
+    # But it will only work in a real git checkout,
+    # not in any mock check-out we use during testing.
+
+    # Needed, because files that are build products in this checked out
+    # version might be in git in the next desired version.
+    system 'git clean -qdxf </dev/null';
+    # Needed, because at some revisions the build alters checked out files.
+    # (eg pod/perlapi.pod). Also undoes any changes to makedepend.SH
+    system 'git reset --hard HEAD </dev/null';
+}
+
 sub skip {
     my $reason = shift;
     clean();
+    #my ($reason, $options) = @_;
+    #clean() if $options->{clean};
     warn "skipping - $reason";
     exit 125;
 }
