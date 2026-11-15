@@ -37,6 +37,39 @@ Perl5::Bisect::Auxiliary - Helper subroutines for Perl5::Bisect
 
 =cut
 
+=head1 SUBROUTINES
+
+=head2 C<croak_255()>, C<die_255()>
+
+=over 4
+
+=item * Purpose
+
+C<croak_255()> prints a message on C<STDERR>, then cause F<git bisect> to
+C<exit> with a value of C<255>.
+
+C<die_255()> is simply a wrapper around C<croak_255()>, but is the way this functionality is coded in F<bin/bisect.pl> and F<bin/bisect-runner.pl>.
+
+=item * Arguments
+
+    croak_255("message");
+
+    die_255("message");
+
+=item * Return Value
+
+TK
+
+=item * Comment
+
+Currently, C<croak_255()> this subroutine is only called from within other
+subroutines defined in this package.  C<die_255()> is probably the preferred
+way to get the running programs to abort.
+
+=back
+
+=cut
+
 # Ensure we always exit with 255, to cause git bisect to abort.
 sub croak_255 {
     my $message = join '', @_;
