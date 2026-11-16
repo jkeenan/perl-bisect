@@ -3,7 +3,6 @@ use strict;
 use 5.14.0;
 
 use Getopt::Long qw(:config bundling no_auto_abbrev);
-use Pod::Usage;
 use Config;
 use File::Temp qw(tempdir);
 use File::Spec;
@@ -47,6 +46,17 @@ use Perl5::Bisect::Patching qw(
     patch_Configure
     patch_C
 );
+
+sub usage {
+    my ($description, $exitval) = @_;
+    die "usage() requires non-zero-length description as first argument"
+        unless ($description and length($description));
+    $exitval //= 255;
+    say STDERR "This is the usage statement for bin/bisect-runner.pl";
+    say STDERR "Exiting due to: $description";
+    say STDERR "Intended exit value: $exitval";
+    exit $exitval;
+}
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
@@ -169,7 +179,12 @@ if ($options{validate} && !@ARGV) {
     say 'QQQ: @ARGV if \'validate\' requested: ', join(' ' => @ARGV);
 }
 
-pod2usage(exitval => 0, verbose => 2) if $options{usage};
+if ($options{usage}) {
+    usage(
+        "Called--usage switch on command-line",
+        0
+    );
+}
 
 # This needs to be done before the next arguments check, as it's populating
 # @ARGV
@@ -207,23 +222,40 @@ if (defined $target && $target =~ /\.t\z/) {
     $target = 'test_prep';
 }
 
-pod2usage(exitval => 255, verbose => 1)
-    unless @ARGV || $match || $options{'test-build'}
+unless (@ARGV || $match || $options{'test-build'}
         || defined $options{'one-liner'} || defined $options{module}
-        || defined $options{'test-module'};
-pod2usage(exitval => 255, verbose => 1)
-    if !$options{'one-liner'} && ($options{l} || $options{w});
+        || defined $options{'test-module'}
+) {
+    usage(
+        "none of no \@ARGV, test-build, defined one-line, module, etc.",
+        255,
+    );
+}
+
+if (!$options{'one-liner'} && ($options{l} || $options{w})) {
+   usage(
+       "Supplied --l or --w without -e clause or --one-liner",
+       255,
+   );
+}
+
 if ($options{'no-module-tests'} && $options{module}) {
-    print STDERR "--module and --no-module-tests are exclusive.\n\n";
-    pod2usage(exitval => 255, verbose => 1)
+    usage(
+        "--module and --no-module-tests are exclusive.",
+        255,
+    );
 }
 if ($options{'no-module-tests'} && $options{'test-module'}) {
-    print STDERR "--test-module and --no-module-tests are exclusive.\n\n";
-    pod2usage(exitval => 255, verbose => 1)
+    usage(
+        "--test-module and --no-module-tests are exclusive.",
+        255,
+    );
 }
 if ($options{module} && $options{'test-module'}) {
-    print STDERR "--module and --test-module are exclusive.\n\n";
-    pod2usage(exitval => 255, verbose => 1)
+    usage(
+        "--module and --test-module are exclusive.",
+        255,
+    );
 }
 
 check_shebang($ARGV[0], $run_with_our_perl)
