@@ -12,6 +12,7 @@ use File::Spec;
 # does not extend to this program; hence the need for 'use lib' here.
 use lib ("$ENV{HOME}/gitwork/noncore/perl-bisect/lib");
 use Perl5::Bisect::Auxiliary qw(
+    usage
     croak_255
     die_255
     open_or_die
@@ -46,17 +47,6 @@ use Perl5::Bisect::Patching qw(
     patch_Configure
     patch_C
 );
-
-sub usage {
-    my ($description, $exitval) = @_;
-    die "usage() requires non-zero-length description as first argument"
-        unless ($description and length($description));
-    $exitval //= 255;
-    say STDERR "This is the usage statement for bin/bisect-runner.pl";
-    say STDERR "Exiting due to: $description";
-    say STDERR "Intended exit value: $exitval";
-    exit $exitval;
-}
 
 my @targets
     = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);

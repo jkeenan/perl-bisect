@@ -7,6 +7,7 @@ $VERSION = "0.01";
 require Exporter;
 @ISA         = qw(Exporter);
 @EXPORT_OK = ( qw|
+    usage
     croak_255
     die_255
     open_or_die
@@ -35,9 +36,52 @@ require Exporter;
 
 Perl5::Bisect::Auxiliary - Helper subroutines for Perl5::Bisect
 
+=head1 SUBROUTINES
+
+=head2 C<usage()>
+
+=over 4
+
+=item * Purpose
+
+Usage statement for bin/bisect-runner.pl
+
+=item * Arguments
+
+    usage(
+        "Reason for exiting",
+        255,
+    );
+
+List of two arguments:  the first is a string holding a brief description of
+why we are exiting; the second is the desired value with which we C<exit>
+(defaults to C<255>).
+
+=item * Return Value
+
+Exits the program with exit value supplied in call.
+
+=item * Comment
+
+Replaces use of F<pod2usage> in Porting/bisect-runner.pl, as that approach
+dumps an enormous volume of documentation without indicating at I<which>
+invocation we are exiting, which in turn means we get no clue as to I<why> we
+are exiting.
+
+=back
+
 =cut
 
-=head1 SUBROUTINES
+sub usage {
+    my ($description, $exitval) = @_;
+    die "usage() requires non-zero-length description as first argument"
+        unless ($description and length($description));
+    $exitval //= 255;
+    say STDERR "This is the usage statement for bin/bisect-runner.pl";
+    say STDERR "Exiting due to: $description";
+    say STDERR "Intended exit value: $exitval";
+    exit $exitval;
+}
 
 =head2 C<croak_255()>, C<die_255()>
 
