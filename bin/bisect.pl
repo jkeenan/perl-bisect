@@ -39,13 +39,13 @@ my $bisector = "$cwd/$0";
 my $brunner = "$cwd/bin/bisect-runner.pl";
 die "Can't find bisect runner $brunner" unless -f $brunner;
 
-my ($start, $end, $validate, $usage, $bad, $jobs, $make, $gold,
+my ($start, $end, $validate, $usage, $jobs, $make, $gold,
     $module, $with_module, $verbose);
 
 my $need_cpan_config;
 my $cpan_config_dir;
 
-$bad = !GetOptions(
+my $bad = !GetOptions(
     'start=s'               => \$start,
     'end=s'                 => \$end,
     'jobs|j=i'              => \$jobs,
@@ -96,13 +96,16 @@ chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
 if ($verbose) {
     say "bisect.pl:        $bisector";
     say "bisect-runner.pl: $brunner";
-    say 'RUNNER INVOCATION #1';
-    say 'AAA: @ARGV before first possible invocation of bisect-runner.pl: ', join(' ' => @ARGV);
 }
 
 # Note that we're calling the bisect-runner here with 2 command-line switches
 # that are NOT listed in this program's invocation of GetOptions() (above) but
 # ARE processed by the runner's invocation of GetOptions().
+
+if ($verbose) {
+    say 'RUNNER INVOCATION #1';
+    say 'AAA: @ARGV before first possible invocation of bisect-runner.pl: ', join(' ' => @ARGV);
+}
 
 system $^X, $brunner, '--check-args', '--check-shebang', @ARGV and exit 255;
 exit 255 if $bad;
@@ -244,10 +247,10 @@ foreach ($start, $end) {
             or die "Can't chmod 0500, '$toname': $!";
         $brunner = $toname;
 
-        say 'RUNNER INVOCATION #2' if $verbose;
-
         # Once again, '--check-args' is a switch for the runner, not for this
         # program itself.
+
+        say 'RUNNER INVOCATION #2' if $verbose;
 
         system $^X, $brunner, '--check-args', @ARGV
             and die "Can't run inplace for some reason. :-(";
