@@ -1,0 +1,58 @@
+=head1 Bisection Examples and Invocations
+
+This document records my work-in-progress on refactoring F<Porting/bisect.pl>
+and F<Porting/bisect-runner.pl> into a library to be known as F<Perl5-Bisect>.
+At present (Nov 17 2026) that refactoring has moved the subroutines
+previously defined in F<bisect-runner.pl> into two modules,
+F<Perl5::Bisect::Auxiliary> and F<Perl5::Bisect::Patching>.  I have begun to
+write tests for those subroutines in F<t/004-patching.t>.  However, the
+ultimate test for this refactoring is:  I<Can I call a program at the
+command-line which uses the same (or nearly the same) arguments as
+F<Porting/bisect.pl> and produces the same (or even more useful) results as
+that program in the Perl core distribution?>  The program in the core
+distribution has a decade-and-a-half of production experience, but it has no
+regression tests of its own.  This refactored program will need tests that we
+can run with C<make test> or C<prove> that will test both the individual
+subroutines (or, later, methods) exported by F<Auxiliary> and F<Patching> and
+the overall results of the program.
+
+Understanding the core distribution's bisection has been very challenging.  I
+have come to realize that, among many other things, one has to fully account
+for:
+
+=over 4
+
+=item * Handover points
+
+By I<handover points> we mean places where F<bisect.pl> -- the program
+actually called on the command-line in production -- makes a call to
+F<bisect-runner.pl> and turns over completion of bisection to that program.
+There are currently 7 such handover points, each of which is coded somewhat
+like this:
+
+    system $^X, $brunner, '--check-args', '--check-shebang', @ARGV and exit 255;
+
+That is, a C<system> call whose arguments are the F<perl> with which we are
+running bisection, 0 or more command-line options (to be processed internally
+by C<Getopt::Long::GetOptions()>, additional command-line arguments, and,
+should the C<system> call fail, a non-zero C<exit> code (almost always
+C<255>).
+
+Ultimately, we want to eliminate these handovers and have all bisection
+functionality be testable like that of any other CPAN library.
+
+=item * Exit points
+
+By I<exit points> we mean places where either F<bisect.pl> or
+F<bisect-runner.pl> terminates either by an explicit C<exit> call or by an
+exception.  (Currently that means by C<die> statements; perhaps in the future
+those may be C<Carp::Croak> statements.)  These exit points are too numerous
+to list now.
+
+
+=back
+
+=cut
+
+
+
