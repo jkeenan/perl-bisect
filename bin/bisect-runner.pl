@@ -231,13 +231,13 @@ if (!$options{'one-liner'} && ($options{l} || $options{w})) {
 
 if ($options{'no-module-tests'} && $options{module}) {
     usage(
-        "--module and --no-module-tests are exclusive.",
+        "--module and --no-module-tests are mutually exclusive.",
         255,
     );
 }
 if ($options{'no-module-tests'} && $options{'test-module'}) {
     usage(
-        "--test-module and --no-module-tests are exclusive.",
+        "--test-module and --no-module-tests are mutually exclusive.",
         255,
     );
 }
