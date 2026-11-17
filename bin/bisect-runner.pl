@@ -171,7 +171,7 @@ if ($options{validate} && !@ARGV) {
 
 if ($options{usage}) {
     usage(
-        "Called--usage switch on command-line",
+        "Called --usage switch on command-line",
         0
     );
 }
@@ -243,7 +243,7 @@ if ($options{'no-module-tests'} && $options{'test-module'}) {
 }
 if ($options{module} && $options{'test-module'}) {
     usage(
-        "--module and --test-module are exclusive.",
+        "--module and --test-module are mutually exclusive.",
         255,
     );
 }

@@ -47,10 +47,72 @@ By I<exit points> we mean places where either F<bisect.pl> or
 F<bisect-runner.pl> terminates either by an explicit C<exit> call or by an
 exception.  (Currently that means by C<die> statements; perhaps in the future
 those may be C<Carp::Croak> statements.)  These exit points are too numerous
-to list now.
-
+to completely list now.
 
 =back
+
+=head2 Handover Points
+
+=head2 Exit points
+
+=head3 C<pod2usage() invocations>
+
+In F<Porting/bisect-runner.pl> there were many invocations of
+C<Pod::Usage::pod2usage()>.  These mostly concerned situations where
+command-line switches provided to F<Porting/bisect.pl> were mutually
+inconsistent and where an exception needed to be thrown.  However, instead of
+identifying such an inconsistency, all of the extensive POD documentation
+was dumped.  In F<bin/bisect-runner.pl>, I have replaced all the
+C<pod2usage()> calls with very short statements.
+
+    $ perl -Ilib bin/bisect.pl --usage; echo $?
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: Called --usage switch on command-line
+    Intended exit value: 0
+    0
+
+    $ perl -Ilib bin/bisect.pl --check-args; echo $?
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: none of no @ARGV, test-build, defined one-line, module, etc.
+    Intended exit value: 255
+    255
+
+    $ perl -Ilib -l bin/bisect.pl --l; echo $?
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: none of no @ARGV, test-build, defined one-line, module, etc.
+    Intended exit value: 255
+    255
+
+    $ perl -Ilib -l bin/bisect.pl --w; echo $?
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: none of no @ARGV, test-build, defined one-line, module, etc.
+    Intended exit value: 255
+    255
+
+    $ perl -Ilib -l bin/bisect.pl --verbose --module=Text::Beautify --no-module-tests; echo $?
+    ...
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: --module and --no-module-tests are exclusive.
+    Intended exit value: 255
+    255
+
+    $ !2181
+    perl -Ilib -l bin/bisect.pl --verbose --test-module=Text::Beautify --no-module-tests; echo $?
+    ...
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: --test-module and --no-module-tests are exclusive.
+    Intended exit value: 255
+    255
+
+    $ perl -Ilib -l bin/bisect.pl --verbose --module=Text::Beautify --test-module=Text::Beautify; echo $?
+    ...
+    This is the usage statement for bin/bisect-runner.pl
+    Exiting due to: --module and --test-module are mutually exclusive.
+    Intended exit value: 255
+    255
+
+Eventually, we will need to transform these production-level calls into
+regression tests within the Perl5-Bisect test suite.
 
 =cut
 
