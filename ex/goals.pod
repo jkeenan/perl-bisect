@@ -89,22 +89,14 @@ C<pod2usage()> calls with very short statements.
     Intended exit value: 255
     255
 
-    $ perl -Ilib -l bin/bisect.pl --verbose --module=Text::Beautify --no-module-tests; echo $?
-    ...
-    This is the usage statement for bin/bisect-runner.pl
-    Exiting due to: --module and --no-module-tests are exclusive.
-    Intended exit value: 255
-    255
-
-    $ !2181
-    perl -Ilib -l bin/bisect.pl --verbose --test-module=Text::Beautify --no-module-tests; echo $?
+    $ perl -Ilib -l bin/bisect.pl --test-module=Text::Beautify --no-module-tests; echo $?
     ...
     This is the usage statement for bin/bisect-runner.pl
     Exiting due to: --test-module and --no-module-tests are exclusive.
     Intended exit value: 255
     255
 
-    $ perl -Ilib -l bin/bisect.pl --verbose --module=Text::Beautify --test-module=Text::Beautify; echo $?
+    $ perl -Ilib -l bin/bisect.pl --module=Text::Beautify --test-module=Text::Beautify; echo $?
     ...
     This is the usage statement for bin/bisect-runner.pl
     Exiting due to: --module and --test-module are mutually exclusive.

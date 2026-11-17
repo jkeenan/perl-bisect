@@ -20,12 +20,6 @@ use Data::Dump qw(dd pp);
 
 my $startdir = cwd();
 
-#    $ perl -Ilib bin/bisect.pl --usage; echo $?
-#    This is the usage statement for bin/bisect-runner.pl
-#    Exiting due to: Called --usage switch on command-line
-#    Intended exit value: 0
-#    0
-
 ok(-d 'lib', "Able to locate the 'lib' directory");
 ok(-d 'bin', "Able to locate the 'bin' directory");
 my $bisector = File::Spec->catfile('bin', 'bisect.pl');
@@ -81,11 +75,55 @@ ok(-e $bisector, "$bisector is executable");
 
 {
     my $args = '--module=Text::Beautify --no-module-tests';
+
+    # TODO: If I call 'system(LIST)' below, bisection begins in 
+    # $SECONDARY_CHECKOUT_DIR -- which I do not want!
+    # But it DWIMS provided I join the list elements into a string. Why?
+
+    my $cmd = join ' ' => $^X, '-Ilib', $bisector, $args;
     my ($stdout, $stderr, $exit) = capture {
-        system($^X, '-Ilib', $bisector, $args);
+        #system($^X, '-Ilib', $bisector, $args);
+        system($cmd);
     };
-print STDERR "XXX: GOT THIS FAR\n";
     my $exp = qr/Exiting due to: --module and --no-module-tests are mutually exclusive\./;
+    my @lines = split /\n/, $stderr;
+    like($lines[-2], $exp,
+        "Got expected exit message when calling '$args'");
+    is($exit >> 8, 255, "--usage exited 255, as expected");
+}
+
+{
+    my $args = '--test-module=Text::Beautify --no-module-tests';
+
+    # TODO: If I call 'system(LIST)' below, bisection begins in 
+    # $SECONDARY_CHECKOUT_DIR -- which I do not want!
+    # But it DWIMS provided I join the list elements into a string. Why?
+
+    my $cmd = join ' ' => $^X, '-Ilib', $bisector, $args;
+    my ($stdout, $stderr, $exit) = capture {
+        #system($^X, '-Ilib', $bisector, $args);
+        system($cmd);
+    };
+    my $exp = qr/Exiting due to: --test-module and --no-module-tests are mutually exclusive\./;
+    my @lines = split /\n/, $stderr;
+    like($lines[-2], $exp,
+        "Got expected exit message when calling '$args'");
+    is($exit >> 8, 255, "--usage exited 255, as expected");
+}
+
+{
+    my $args = '--module=Text::Beautify --test-module=Text::Beautify';
+
+    # TODO: If I call 'system(LIST)' below, bisection begins in 
+    # $SECONDARY_CHECKOUT_DIR -- which I do not want!
+    # But it DWIMS provided I join the list elements into a string. Why?
+
+    my $cmd = join ' ' => $^X, '-Ilib', $bisector, $args;
+    my ($stdout, $stderr, $exit) = capture {
+        #system($^X, '-Ilib', $bisector, $args);
+        system($cmd);
+    };
+    my $exp = qr/Exiting due to: --module and --test-module are mutually exclusive\./;
     my @lines = split /\n/, $stderr;
     like($lines[-2], $exp,
         "Got expected exit message when calling '$args'");
