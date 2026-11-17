@@ -235,12 +235,14 @@ if ($options{'no-module-tests'} && $options{module}) {
         255,
     );
 }
+
 if ($options{'no-module-tests'} && $options{'test-module'}) {
     usage(
         "--test-module and --no-module-tests are mutually exclusive.",
         255,
     );
 }
+
 if ($options{module} && $options{'test-module'}) {
     usage(
         "--module and --test-module are mutually exclusive.",
