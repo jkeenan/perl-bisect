@@ -2,29 +2,17 @@ use 5.14.0;
 use warnings;
 # t/003-exit.t
 
-#use Perl5::Bisect::Patching qw(
-#    force_manifest
-#    force_manifest_cleanup
-#);
 use Test::More;
-#use Carp;
 use Cwd;
 use File::Spec;
-#use File::Copy;
-#use File::Path qw(mkpath rmtree);
-#use File::Spec;
-#use File::Temp qw(tempdir tempfile);
-#use Tie::File;
 use Capture::Tiny qw(:all);
 use Data::Dump qw(dd pp);
-#use File::Touch 0.12;
-#use Path::Tiny;
 
 my $startdir = cwd();
 
 ok(-d 'lib', "Able to locate the 'lib' directory");
 ok(-d 'bin', "Able to locate the 'bin' directory");
-my $bisector = File::Spec->catfile('bin', 'bisect.pl');
+my $bisector = File::Spec->catfile($startdir, 'bin', 'bisect.pl');
 ok(-f $bisector, "Able to locate $bisector");
 ok(-e $bisector, "$bisector is executable");
 
