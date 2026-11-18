@@ -306,27 +306,33 @@ foreach ($start, $end) {
 
         say 'RUNNER INVOCATION #2' if $verbose;
 
-        system $^X, $brunner, '--check-args', @ARGV
-            and die "Can't run inplace for some reason. :-(";
+        # Note: If I call '--check-args' on the command-line, it will appear
+        # twice in $cmd below.
+        my $cmd = join ' ' => ($^X, $brunner, '--check-args', @ARGV);
+        say "BBB: $cmd";
+        system($cmd) and die "Can't run inplace for some reason. :-(";
     }
 }
-say "BBB: bisect-runner.pl: Now: $brunner" if $verbose;
+say "CCC: bisect-runner.pl: Now: $brunner" if $verbose;
 
 sub validate {
     my $commit = shift;
-    if (defined $start && `git rev-list -n1 $commit ^$start^` eq "") {
-        print "Skipping $commit, as it is earlier than $start\n";
+
+    my $args = shift;
+    if (defined $args->{start} && `git rev-list -n1 $commit ^$args->{start}^` eq "") {
+        print "Skipping $commit, as it is earlier than $args->{start}\n";
         return;
     }
-    if (defined $end && `git rev-list -n1 $end ^$commit^` eq "") {
-        print "Skipping $commit, as it is more recent than $end\n";
+    if (defined $args->{end} && `git rev-list -n1 $args->{end} ^$commit^` eq "") {
+        print "Skipping $commit, as it is more recent than $args->{end}\n";
         return;
     }
     print "Testing $commit...\n";
     system "git checkout $commit </dev/null" and die;
-    say 'RUNNER INVOCATION #3' if $verbose;
-    my $ret = system $^X, $brunner, '--no-clean', @ARGV;
+    say 'RUNNER INVOCATION #3' if $args->{verbose};
+    my $ret = system $^X, $args->{brunner}, '--no-clean', @{$args->{argv}};
     die "Runner returned $ret, not 0 for revision $commit" if $ret;
+
     system 'git clean -dxf </dev/null' and die;
     system 'git reset --hard HEAD </dev/null' and die;
     return $commit;
@@ -349,7 +355,14 @@ sub validate {
 
 if ($validate) {
     require Text::Wrap;
-    my @built = map {validate $_} 'blead', reverse @stable;
+    my $args = {
+        start   => $start,
+        end     => $end,
+        verbose => $verbose,
+        brunner => $brunner,
+        argv    => [@ARGV],
+    };
+    my @built = map {validate($_, $args)} 'blead', reverse @stable;
     if (@built) {
         print Text::Wrap::wrap("", "", "Successfully validated @built\n");
         exit 0;
@@ -375,7 +388,7 @@ else {
 }
 
 # Sanity check the first and last revisions:
-say 'CCC: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
+say 'DDD: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
     if $verbose;
 system "git checkout $end" and die;
 
@@ -390,7 +403,7 @@ die "Runner returned $ret for end revision" unless $ret;
 die "Runner returned $ret for end revision, which is a skip"
     if $ret == 125 * 256;
 
-say 'DDD: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV)
+say 'EEE: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV)
     if $verbose;
 if (defined $start) {
     system "git checkout $start" and die;
@@ -434,7 +447,7 @@ else {
 }
 
 # Only now are we ready to turn things over to 'git bisect':
-say 'EEE: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV)
+say 'FFF: @ARGV before starting \'git bisect\': ', join(' ' => @ARGV)
     if $verbose;
 
 system "git bisect start" and die;
