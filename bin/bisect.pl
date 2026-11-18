@@ -15,6 +15,8 @@ use File::Spec;
 use File::Path qw(mkpath);
 use Cwd;
 use Perl5::Bisect;
+use Perl5::Bisect::Subs qw( validate );
+use Data::Dump qw(dd pp);
 
 # We start by making sure we have a checkout of a (Perl 5) git repository in
 # an envvar SECONDARY_CHECKOUT_DIR.  We make sure that we can move to the
@@ -314,44 +316,6 @@ foreach ($start, $end) {
     }
 }
 say "CCC: bisect-runner.pl: Now: $brunner" if $verbose;
-
-sub validate {
-    my $commit = shift;
-
-    my $args = shift;
-    if (defined $args->{start} && `git rev-list -n1 $commit ^$args->{start}^` eq "") {
-        print "Skipping $commit, as it is earlier than $args->{start}\n";
-        return;
-    }
-    if (defined $args->{end} && `git rev-list -n1 $args->{end} ^$commit^` eq "") {
-        print "Skipping $commit, as it is more recent than $args->{end}\n";
-        return;
-    }
-    print "Testing $commit...\n";
-    system "git checkout $commit </dev/null" and die;
-    say 'RUNNER INVOCATION #3' if $args->{verbose};
-    my $ret = system $^X, $args->{brunner}, '--no-clean', @{$args->{argv}};
-    die "Runner returned $ret, not 0 for revision $commit" if $ret;
-
-    system 'git clean -dxf </dev/null' and die;
-    system 'git reset --hard HEAD </dev/null' and die;
-    return $commit;
-}
-
-# Calling:
-#
-#     perl bin/bisect.pl --validate
-#
-# ... will, starting with blead, configure and build and run tests of base/*.t
-# at tags for production releases as far back as possible on your machine.
-# Output will terminate something like this:
-#
-#     HEAD is now at a5f75d6678 perl 5.002
-#     Successfully validated blead v5.44.0 v5.42.0 v5.40.0 v5.38.0 v5.36.0
-#     v5.34.0 v5.32.0 v5.30.0 v5.28.0 v5.26.0 v5.24.0 v5.22.0 v5.20.0 v5.18.0
-#     v5.16.0 v5.14.0 v5.12.0 v5.10.0 perl-5.8.0 perl-5.6.0 perl-5.005 perl-5.004
-#     perl-5.003 perl-5.002
-#     That took 1440 seconds.
 
 if ($validate) {
     require Text::Wrap;

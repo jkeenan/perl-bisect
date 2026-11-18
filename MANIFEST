@@ -1,9 +1,11 @@
 bin/bisect-runner.pl
 bin/bisect.pl
 Changes
+ex/goals.pod
 lib/Perl5/Bisect.pm
 lib/Perl5/Bisect/Auxiliary.pm
 lib/Perl5/Bisect/Patching.pm
+lib/Perl5/Bisect/Subs.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
@@ -14,5 +16,7 @@ src/bisect-runner.pl
 src/bisect.pl
 t/001-load.t
 t/002-new.t
+t/003-exit.t
 t/004-patching.t
+t/005-validate.t
 Todo
