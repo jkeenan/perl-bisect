@@ -309,10 +309,11 @@ foreach ($start, $end) {
         say 'RUNNER INVOCATION #2' if $verbose;
 
         # Note: If I call '--check-args' on the command-line, it will appear
-        # twice in $cmd below.
-        my $cmd = join ' ' => ($^X, $brunner, '--check-args', @ARGV);
-        say "BBB: $cmd";
-        system($cmd) and die "Can't run inplace for some reason. :-(";
+        # twice below.
+
+        say "BBB: ", join ' ' => ($^X, $brunner, '--check-args', @ARGV);;
+        system $^X, $brunner, '--check-args', @ARGV
+            and die "Can't run inplace for some reason. :-(";
     }
 }
 say "CCC: bisect-runner.pl: Now: $brunner" if $verbose;
