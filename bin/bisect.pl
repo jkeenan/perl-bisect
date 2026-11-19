@@ -354,7 +354,7 @@ else {
 # Sanity check the first and last revisions:
 say 'DDD: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
     if $verbose;
-system "git checkout $end" and die;
+system "git checkout -q $end" and die;
 
 say 'RUNNER INVOCATION #4' if $verbose;
 my $ret = system $^X, $brunner, @ARGV;
@@ -370,7 +370,7 @@ die "Runner returned $ret for end revision, which is a skip"
 say 'EEE: @ARGV before sanity-check of \'start\' revision: ', join(' ' => @ARGV)
     if $verbose;
 if (defined $start) {
-    system "git checkout $start" and die;
+    system "git checkout -q $start" and die;
 
     # If you provide a bad value for '--start' (e.g., a tag we haven't yet
     # reached, such as 'v5.98.0') then you'll die here because git will throw
@@ -397,7 +397,7 @@ else {
             # last; here.
             next;
         }
-        system "git checkout $try" and die;
+        system "git checkout -q $try" and die;
         say 'RUNNER INVOCATION #6' if $verbose;
         my $ret = system $^X, $brunner, @ARGV;
         if (!$ret) {

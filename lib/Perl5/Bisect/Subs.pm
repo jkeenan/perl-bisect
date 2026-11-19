@@ -97,7 +97,7 @@ sub validate {
         return;
     }
     print "Testing $commit...\n";
-    system "git checkout $commit </dev/null" and die;
+    system "git checkout -q $commit </dev/null" and die;
     say 'RUNNER INVOCATION #3' if $args->{verbose};
     my $ret = system $^X, $args->{brunner}, '--no-clean', @{$args->{argv}};
     die "Runner returned $ret, not 0 for revision $commit" if $ret;

@@ -36,7 +36,7 @@ END {
     chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
     system(qq|git clean -dfxq|)
         and die "Unable to do git-clean on $checkout_dir:$!";
-    system(qq|git checkout blead|)
+    system(qq|git checkout -q blead|)
         and die "Unable to do git-checkout in $checkout_dir:$!";
     chdir $startdir or die "Unable to return to $startdir";
 }
