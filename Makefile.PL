@@ -36,3 +36,17 @@ my %WriteMakefileArgs = (
 );
 
 WriteMakefile(%WriteMakefileArgs);
+
+# --- MakeMaker overrides ---
+
+package MY;
+
+# add some extra utility targets to the make file
+sub post_constants {
+    q{
+test_long test-long:
+	RUN_LONG_RUNNING_TESTS=1 TEST_JOBS=1 make test
+    }
+}
+
+

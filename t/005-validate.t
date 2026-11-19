@@ -110,7 +110,11 @@ END {
     ok(! defined $rv, "validate() returned undefined value");
 }
 
-{
+SKIP: {
+    skip "Lengthy: configures and builds perl", 1
+        unless $ENV{RUN_LONG_RUNNING_TESTS};
+    note("Test requires configure/build perl; this will take some time ...");
+
     my $commit  = 'v5.44.0';
     local @ARGV = (
         "--gold",
