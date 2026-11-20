@@ -73,6 +73,31 @@ This module uses other subroutines which are also used directly by F<bin/bisect-
 
 =head1 SUBROUTINES
 
+=head2 C<fake_noextensions()>
+
+=over 4
+
+=item * Purpose
+
+TK
+
+=item * Arguments
+
+TK
+
+=item * Return Value
+
+TK
+
+=item * Comment
+
+TK
+
+=back
+
+=cut
+
+
 sub fake_noextensions {
     #print "ZZZ: fake_noextensions\n";
     my $defines = shift;
