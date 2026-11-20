@@ -19,4 +19,5 @@ t/002-new.t
 t/003-exit.t
 t/004-patching.t
 t/005-validate.t
+t/006-module-bbc.t
 Todo
