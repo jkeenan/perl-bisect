@@ -7,6 +7,10 @@ use Cwd;
 use File::Spec;
 use Path::Tiny;
 
+# TODO: Encapsulate and modularize all this setup stuff; return $startdir,
+# $bisector, $brunner, $checkout_dir.  Investigate whether the END block
+# can/should go into such a subroutine.
+
 my $startdir = cwd();
 
 ok(-d 'lib', "Able to locate the 'lib' directory");
