@@ -66,9 +66,6 @@ SKIP: {
         unless $ENV{RUN_LONG_RUNNING_TESTS};
     note("Test requires configure/build perl; this will take some time ...");
 
-    # Something wrong here: --start is not being honored, so bisection is
-    # going back to the dawn of Perl ... way earlier than bisection is
-    # feasible!
     my @switches = (
         '--target'      => 'miniperl',
         '--one-liner'   => '("a" =~ /\A(?:|(?:)a)\z/) ? exit 0 : exit 1',
