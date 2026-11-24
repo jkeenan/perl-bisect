@@ -1,48 +1,20 @@
+# t/007-one-liner.t
 use 5.14.0;
 use warnings;
-# t/007-one-liner.t
 
 use Test::More;
 use Cwd;
 use File::Spec;
-use Path::Tiny;
-
-my $startdir = cwd();
-
-ok(-d 'lib', "Able to locate the 'lib' directory");
-ok(-d 'bin', "Able to locate the 'bin' directory");
-my $bisector = File::Spec->catfile('bin', 'bisect.pl');
-my $brunner  = File::Spec->catfile('bin', 'bisect-runner.pl');
-ok(-f $bisector, "Able to locate $bisector");
-ok(-e $bisector, "$bisector is executable");
-ok(-f $brunner, "Able to locate $brunner");
-ok(-e $brunner, "$brunner is executable");
-
-my $checkout_dir = $ENV{SECONDARY_CHECKOUT_DIR};
-ok(-d $checkout_dir, "Able to locate $checkout_dir");
-die "Unable to locate checkout of Perl 5" unless (
-    -d $checkout_dir &&
-    -d "$checkout_dir/.git"
+use lib ("./t/lib");
+use Testing qw( 
+    get_breaking_sha
+    prepare_for_bisection
+    cleanup_after_bisection
 );
-chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
-system(qq|git stash -q|)
-    and die "Unable to do git-stash on $checkout_dir:$!";
-system(qq|git clean -dfxq|)
-    and die "Unable to do git-clean on $checkout_dir:$!";
-system(qq|git clean -dfxq|)
-    and die "Unable to do git-clean on $checkout_dir:$!";
-chdir $startdir or die "Unable to return to $startdir";
 
-END {
-    chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
-    system(qq|git stash -q|)
-        and die "Unable to do git-stash on $checkout_dir:$!";
-    system(qq|git clean -dfxq|)
-        and die "Unable to do git-clean on $checkout_dir:$!";
-    system(qq|git checkout -q blead|)
-        and die "Unable to do git-checkout in $checkout_dir:$!";
-    chdir $startdir or die "Unable to return to $startdir";
-}
+my ($startdir, $checkout_dir, $bisector, $brunner) = prepare_for_bisection();
+
+END { cleanup_after_bisection($startdir, $checkout_dir); }
 
 =pod
 
@@ -76,13 +48,7 @@ SKIP: {
     my $expected = 'bbf35a5118762c3ee3c08b2753bfbb372f67bf6b';
     my $rv = system($^X, $bisector, @switches);
     is($rv, 0, "system call returned 0, as expected");
-    # TODO: There's probably a more correct way to identify the breaking
-    # commit than reading BISECT_RUN; find it.
-    my $runfile = File::Spec->catfile($checkout_dir, '.git', 'BISECT_RUN');
-    ok(-f $runfile, "Able to locate BISECT_RUN in checkout directory");
-    my @lines = path($runfile)->lines_utf8;
-    chomp @lines;
-    my ($sha) = $lines[1] =~ m/^commit\s(.*)/;
+    my $sha = get_breaking_sha($checkout_dir);
     is($sha, $expected, "Got expected breaking commit: $expected")
         or diag("Instead, got <$sha>");
 };
