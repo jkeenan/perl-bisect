@@ -22,5 +22,6 @@ t/005-validate.t
 t/006-module-bbc.t
 t/007-one-liner.t
 t/008-expect-fail.t
+t/009-dot-equal-operator.t
 t/lib/Testing.pm
 Todo
