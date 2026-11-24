@@ -284,6 +284,7 @@ unless (exists $defines{cc}) {
     # FIXME - really it should be replaced with a proper test of
     # "can we build something?" and a helpful diagnostic if we can't.
     # For now, simply move it here.
+    # https://github.com/jkeenan/perl-bisect/issues/1
     no warnings 'exec';
     $defines{cc} = (`ccache -V`, $?) ? 'cc' : 'ccache cc';
 }

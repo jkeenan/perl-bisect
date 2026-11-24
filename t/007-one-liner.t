@@ -1,3 +1,4 @@
+# t/007-one-liner.t
 use 5.14.0;
 use warnings;
 # t/007-one-liner.t
@@ -5,7 +6,10 @@ use warnings;
 use Test::More;
 use Cwd;
 use File::Spec;
-use Path::Tiny;
+use lib ("./t/lib");
+use Testing qw( 
+    get_breaking_sha
+);
 
 my $startdir = cwd();
 
@@ -76,13 +80,7 @@ SKIP: {
     my $expected = 'bbf35a5118762c3ee3c08b2753bfbb372f67bf6b';
     my $rv = system($^X, $bisector, @switches);
     is($rv, 0, "system call returned 0, as expected");
-    # TODO: There's probably a more correct way to identify the breaking
-    # commit than reading BISECT_RUN; find it.
-    my $runfile = File::Spec->catfile($checkout_dir, '.git', 'BISECT_RUN');
-    ok(-f $runfile, "Able to locate BISECT_RUN in checkout directory");
-    my @lines = path($runfile)->lines_utf8;
-    chomp @lines;
-    my ($sha) = $lines[1] =~ m/^commit\s(.*)/;
+    my $sha = get_breaking_sha($checkout_dir);
     is($sha, $expected, "Got expected breaking commit: $expected")
         or diag("Instead, got <$sha>");
 };

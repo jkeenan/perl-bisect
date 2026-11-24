@@ -1,11 +1,14 @@
+# t/006-module-bbc.t
 use 5.14.0;
 use warnings;
-# t/006-module-bbc.t
 
 use Test::More;
 use Cwd;
 use File::Spec;
-use Path::Tiny;
+use lib ("./t/lib");
+use Testing qw( 
+    get_breaking_sha
+);
 
 # TODO: Encapsulate and modularize all this setup stuff; return $startdir,
 # $bisector, $brunner, $checkout_dir.  Investigate whether the END block
@@ -84,13 +87,7 @@ SKIP: {
     my $expected = '6aef1e87c1ea274e225828cbc1a6044b54feec44';
     my $rv = system($^X, $bisector, @switches);
     is($rv, 0, "system call returned 0, as expected");
-    # TODO: There's probably a more correct way to identify the breaking
-    # commit than reading BISECT_RUN; find it.
-    my $runfile = File::Spec->catfile($checkout_dir, '.git', 'BISECT_RUN');
-    ok(-f $runfile, "Able to locate BISECT_RUN in checkout directory");
-    my @lines = path($runfile)->lines_utf8;
-    chomp @lines;
-    my ($sha) = $lines[1] =~ m/^commit\s(.*)/;
+    my $sha = get_breaking_sha($checkout_dir);
     is($sha, $expected, "Got expected breaking commit: $expected")
         or diag("Instead, got <$sha>");
 };
