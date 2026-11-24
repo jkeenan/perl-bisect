@@ -1,7 +1,6 @@
 # t/007-one-liner.t
 use 5.14.0;
 use warnings;
-# t/007-one-liner.t
 
 use Test::More;
 use Cwd;
@@ -9,44 +8,13 @@ use File::Spec;
 use lib ("./t/lib");
 use Testing qw( 
     get_breaking_sha
+    prepare_for_bisection
+    cleanup_after_bisection
 );
 
-my $startdir = cwd();
+my ($startdir, $checkout_dir, $bisector, $brunner) = prepare_for_bisection();
 
-ok(-d 'lib', "Able to locate the 'lib' directory");
-ok(-d 'bin', "Able to locate the 'bin' directory");
-my $bisector = File::Spec->catfile('bin', 'bisect.pl');
-my $brunner  = File::Spec->catfile('bin', 'bisect-runner.pl');
-ok(-f $bisector, "Able to locate $bisector");
-ok(-e $bisector, "$bisector is executable");
-ok(-f $brunner, "Able to locate $brunner");
-ok(-e $brunner, "$brunner is executable");
-
-my $checkout_dir = $ENV{SECONDARY_CHECKOUT_DIR};
-ok(-d $checkout_dir, "Able to locate $checkout_dir");
-die "Unable to locate checkout of Perl 5" unless (
-    -d $checkout_dir &&
-    -d "$checkout_dir/.git"
-);
-chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
-system(qq|git stash -q|)
-    and die "Unable to do git-stash on $checkout_dir:$!";
-system(qq|git clean -dfxq|)
-    and die "Unable to do git-clean on $checkout_dir:$!";
-system(qq|git clean -dfxq|)
-    and die "Unable to do git-clean on $checkout_dir:$!";
-chdir $startdir or die "Unable to return to $startdir";
-
-END {
-    chdir $checkout_dir or die "Unable to change to $checkout_dir: $!";
-    system(qq|git stash -q|)
-        and die "Unable to do git-stash on $checkout_dir:$!";
-    system(qq|git clean -dfxq|)
-        and die "Unable to do git-clean on $checkout_dir:$!";
-    system(qq|git checkout -q blead|)
-        and die "Unable to do git-checkout in $checkout_dir:$!";
-    chdir $startdir or die "Unable to return to $startdir";
-}
+END { cleanup_after_bisection($startdir, $checkout_dir); }
 
 =pod
 
