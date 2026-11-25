@@ -1,4 +1,5 @@
 # t/010-file-outside-checkout.t
+# https://github.com/jkeenan/perl-bisect/issues/6
 use 5.14.0;
 use warnings;
 
