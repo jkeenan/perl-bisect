@@ -269,6 +269,7 @@ foreach ($start, $end) {
     die "Can't stat $bisector: $!" unless defined $ino0;
     my ($dev1, $ino1) = stat $bisector;
     my $inplace = defined $dev1 && $dev0 == $dev1 && $ino0 == $ino1;
+    say "BBB0: \$inplace: ", ($inplace ? "true" : "false") if $verbose;
 
     if ($modified) {
         my $final = $inplace
