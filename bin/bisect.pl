@@ -359,6 +359,7 @@ say 'DDD: @ARGV before sanity-check of \'end\' revision: ', join(' ' => @ARGV)
 system "git checkout -q $end" and die;
 
 say 'RUNNER INVOCATION #4' if $verbose;
+say join(' ' =>  $^X, $brunner, @ARGV) if $verbose;
 my $ret = system $^X, $brunner, @ARGV;
 
 # This system call to the runner will fail (exit non-zero) if, for example,

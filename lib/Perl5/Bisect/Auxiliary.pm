@@ -566,7 +566,10 @@ sub run_report_and_exit {
     my $ret = run_with_options({setprgp => $options->{setpgrp},
                                 timeout => $options->{timeout},
                                }, @_);
+    print "WWW: \$ret calculated within run_report_and_exit(): $ret\n";
+    print "WWW1: crash options requested\n" if $options->{crash};
     $ret &= 0xff if $options->{crash};
+    print "XXX: \$ret calculated within run_report_and_exit(): $ret\n";
     report_and_exit( {
         good => !$ret,
         pass => 'zero exit from',
