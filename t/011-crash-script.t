@@ -51,9 +51,13 @@ SKIP: {
        '--end'          => '0b2df18fd3736ebdac552d596b8976109f9f4643',
        '--crash',
        '--verbose',
-       "--",
+       #"--",
        #"./miniperl -Ilib -DXv -e '{ my \$n=1; *foo= sub () { \$n }; }'",
-       "./miniperl -Ilib -e '{ my \$n=1; *foo= sub () { \$n }; }'",
+       #"./miniperl -Ilib -e '{ my \$n=1; *foo= sub () { \$n }; }'",
+       #'--one-liner'    => '{ my $n=1; *foo= sub () { $n }; }',
+       # above won't work because failure was only reported when debugging;
+       # take that out, the end revision passes, hence no breaking commit to
+       # be identified
     );
     my $expected = '1567c65ac069266bfe65959430c185babd476538';
 
