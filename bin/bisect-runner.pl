@@ -620,7 +620,6 @@ elsif (my $mod_opt = $options{module} || $options{'with-module'}
   my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
 
   if ($options{module} || $options{'test-module'}) {
-      #say "UUU: arguments in case of 'module' or 'test-module':  ", join(' ' => @cpanshell, $shellcmd);
     say "UUU: arguments in case of 'module' or 'test-module':";
     say "UUU:   cpanshell:     ", join(' ' => @cpanshell);
     say "UUU:   shell command: $shellcmd";
