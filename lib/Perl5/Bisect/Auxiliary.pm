@@ -243,14 +243,6 @@ sub edit_file {
     close_or_die($fh);
 }
 
-# AIX supplies a pre-historic patch program, which certainly predates Linux
-# and is probably older than NT. It can't cope with unified diffs. Meanwhile,
-# it's hard enough to get git diff to output context diffs, let alone git show,
-# and nearly all the patches embedded here are unified. So it seems that the
-# path of least resistance is to convert unified diffs to context diffs:
-# (Comment preceding definition on process_hunk, introduced in 6fe55cbde in
-# 2011.)
-
 sub process_hunk {
     my ($from_out, $to_out, $has_from, $has_to, $delete, $add) = @_;
     ++$$has_from if $delete;
@@ -266,8 +258,38 @@ sub process_hunk {
     }
 }
 
-# This isn't quite general purpose, as it can't cope with
-# '\ No newline at end of file'
+=head2 C<ud2cd()>
+
+=over 4
+
+=item * Purpose
+
+When we need to patch an older F<perl> during bisection, we may need to
+convert that patch from a unified diff to a context diff.
+
+=item * Arguments
+
+    my $transformed_patch = ud2cd($patch);
+
+String holding the content of a patch.
+
+=item * Return Value
+
+String holding the content of transformed patch.
+
+If there is a problem attempting this transformation, the program will C<die>
+with an exit status of C<255> and emit an appropriate exception message.
+
+=item * Comment
+
+As noted by Nicholas Clark in 6fe55cbde in 2011: I< This isn't quite general
+purpose, as it can't cope with C<\ No newline at end of file>>.
+
+=back
+
+=cut
+
+
 sub ud2cd {
     my $diff_in = shift;
     my $diff_out = '';
@@ -353,8 +375,51 @@ sub ud2cd {
     }
 }
 
+=head2 C<placate_patch_prog()>
+
+=over 4
+
+=item * Purpose
+
+During bisection we may need to apply patches to older F<perl>s to get them to
+configure and compile.  We need to determine which variant of the F<patch>
+program is available on the machine on which we are performing bisection.  On
+the basis of that determination, we decide to work with either context diffs
+or unified diffs.
+
+=item * Arguments
+
+    my $patch_to_use = placate_patch_prog($patch);
+
+String holding the content of a patch.
+
+=item * Return Value
+
+If we are unable to recognize which version of F<patch> we have available, we
+C<die> returning a C<255> exit code.
+
+Otherwise we return the same string we passed to the subroutine as an argument
+(in the case of a context diff) or that string transformed into a context diff
+(if we started with a unified diff).
+
+=item * Comment
+
+We only need to execute this determination once per bisection run, so we store
+the determination internally (via a closure) for use in all patches after the first.
+
+Comment from Nicholas Clark in 6fe55cbde in 2011:
+
+I<AIX supplies a pre-historic patch program, which certainly predates Linux and
+is probably older than NT. It can't cope with unified diffs. Meanwhile, it's
+hard enough to get git diff to output context diffs, let alone git show, and
+nearly all the patches embedded here are unified. So it seems that the path of
+least resistance is to convert unified diffs to context diffs.>
+
+=back
+
+=cut
+
 {
-    # FIXME: Why is this defined outside the subroutine where it's used?
     my $use_context;
 
     sub placate_patch_prog {

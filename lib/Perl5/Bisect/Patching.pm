@@ -14,7 +14,7 @@ use Perl5::Bisect::Auxiliary qw(
     apply_commit
     checkout_file
 );
-#clean
+
 our ( $VERSION, @ISA, @EXPORT_OK );
 $VERSION = "0.01";
 require Exporter;
