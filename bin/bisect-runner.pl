@@ -20,17 +20,8 @@ use Perl5::Bisect::Auxiliary qw(
     system_or_die
     run_with_options
     extract_from_file
-    edit_file
-    process_hunk
-    ud2cd
-    placate_patch_prog
-    apply_patch
-    patch_from_commit
-    apply_commit
-    revert_commit
     skip
     check_shebang
-    checkout_file
     match_and_exit
     report_and_exit
     run_report_and_exit
