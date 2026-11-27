@@ -23,7 +23,7 @@ t/006-module-bbc.t
 t/007-one-liner.t
 t/008-expect-fail.t
 t/009-dot-equal-operator.t
-t/010-file-outside-checkout.t
-t/011-crash-script.t
 t/lib/Testing.pm
+t/pending/010-file-outside-checkout.t
+t/pending/011-crash-script.t
 Todo
