@@ -50,7 +50,7 @@ my %options =
 
 # We accept #!./miniperl and #!./perl
 # We don't accept #!miniperl and #!perl as their intent is ambiguous
-my $run_with_our_perl = qr{\A#!(\./(?:mini)?perl)\b};
+my $run_with_our_perl = qr{\A\#!(\./(?:mini)?perl)\b};
 
 my $linux64 = `uname -sm` eq "Linux x86_64\n" ? '64' : '';
 
