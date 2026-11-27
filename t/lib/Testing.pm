@@ -19,15 +19,11 @@ use Path::Tiny;
 sub get_breaking_sha {
     my $checkout_dir = shift;
 
-    # TODO: There's probably a more correct way to identify the breaking
-    # commit than reading BISECT_RUN; find it.
-
-    my $runfile = File::Spec->catfile($checkout_dir, '.git', 'BISECT_RUN');
-    -f $runfile or die "Unable to locate BISECT_RUN in checkout directory: $!";
+    my $runfile = File::Spec->catfile($checkout_dir, qw( .git refs bisect bad ));
+    -f $runfile or die "Unable to locate .git/refs/bisect/bad in checkout directory: $!";
     my @lines = path($runfile)->lines_utf8;
     chomp @lines;
-    my ($sha) = $lines[1] =~ m/^commit\s(.*)/;
-    return $sha;
+    return $lines[0];
 }
 
 sub prepare_for_bisection {
