@@ -1,6 +1,7 @@
 package Perl5::Bisect::Auxiliary;
 use strict;
 use warnings;
+use File::Temp qw(tempdir);
 use Data::Dump qw(dd pp);
 our ( $VERSION, @ISA, @EXPORT_OK );
 $VERSION = "0.01";
@@ -30,6 +31,7 @@ require Exporter;
     match_and_exit
     report_and_exit
     run_report_and_exit
+    prepare_one_build
 |);
 
 =head1 NAME
@@ -642,6 +644,39 @@ sub run_report_and_exit {
         description => "@_",
         options => $options,
     } );
+}
+
+sub prepare_one_build {
+    my ($defines, $options) = @_;
+
+    my @ARGS = '-dEs';
+    foreach my $key (sort keys %{$defines}) {
+        my $val = $defines->{$key};
+        if (ref $val) {
+            push @ARGS, "-D$key=@$val";
+        }
+        elsif (!defined $val) {
+            push @ARGS, "-U$key";
+        }
+        elsif (!length $val) {
+            push @ARGS, "-D$key";
+        }
+        else {
+            $val = "" if $val eq "\0";
+            push @ARGS, "-D$key=$val";
+        }
+    }
+    push @ARGS, map {"-A$_"} @{$options->{A}};
+
+    my $prefix;
+
+    # Testing a module? We need to install perl/cpan modules to a temp dir
+    if ($options->{module} || $options->{'with-module'} || $options->{'test-module'}) {
+      $prefix = tempdir(CLEANUP => 1);
+      push @ARGS, "-Dprefix=$prefix";
+      push @ARGS, "-Uversiononly", "-Dinstallusrbinperl=n";
+    }
+    return (\@ARGS, $prefix);
 }
 
 1;

@@ -25,6 +25,7 @@ use Perl5::Bisect::Auxiliary qw(
     match_and_exit
     report_and_exit
     run_report_and_exit
+    prepare_one_build
 );
 use Perl5::Bisect::Patching qw(
     force_manifest
@@ -403,35 +404,8 @@ my ($missing, $created_dirs);
 ($missing, $created_dirs) = force_manifest()
     if $options{'force-manifest'};
 
-my @ARGS = '-dEs';
-foreach my $key (sort keys %defines) {
-    my $val = $defines{$key};
-    if (ref $val) {
-        push @ARGS, "-D$key=@$val";
-    }
-    elsif (!defined $val) {
-        push @ARGS, "-U$key";
-    }
-    elsif (!length $val) {
-        push @ARGS, "-D$key";
-    }
-    else {
-        $val = "" if $val eq "\0";
-        push @ARGS, "-D$key=$val";
-    }
-}
-push @ARGS, map {"-A$_"} @{$options{A}};
-
-my $prefix;
-
-# Testing a module? We need to install perl/cpan modules to a temp dir
-if ($options{module} || $options{'with-module'} || $options{'test-module'})
-{
-  $prefix = tempdir(CLEANUP => 1);
-
-  push @ARGS, "-Dprefix=$prefix";
-  push @ARGS, "-Uversiononly", "-Dinstallusrbinperl=n";
-}
+my ($ARGSref, $prefix) = prepare_one_build(\%defines, \%options);
+my @ARGS = @{$ARGSref};
 
 say 'SSS: @ARGV after \'module\' analysis: ', join(' ' => @ARGV);
 
