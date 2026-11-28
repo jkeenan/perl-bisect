@@ -25,6 +25,7 @@ use Perl5::Bisect::Auxiliary qw(
     match_and_exit
     report_and_exit
     run_report_and_exit
+    pre_getopts_processing
     prepare_one_build
 );
 use Perl5::Bisect::Patching qw(
@@ -40,52 +41,12 @@ use Perl5::Bisect::Patching qw(
     patch_C
 );
 
-my @targets
-    = qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
-
-my %options =
-    (
-     'expect-pass' => 1,
-     clean => 1, # mostly for debugging this
-    );
-
-# We accept #!./miniperl and #!./perl
-# We don't accept #!miniperl and #!perl as their intent is ambiguous
-my $run_with_our_perl = qr{\A\#!(\./(?:mini)?perl)\b};
-
-my $linux64 = `uname -sm` eq "Linux x86_64\n" ? '64' : '';
-
-my @paths;
-
-if ($^O eq 'linux') {
-    # This is the search logic for a multi-arch library layout
-    # added to linux.sh in commits 40f026236b9959b7 and dcffd848632af2c7.
-    my $gcc = -x '/usr/bin/gcc' ? '/usr/bin/gcc' : 'gcc';
-
-    foreach (`$gcc -print-search-dirs`) {
-        next unless /^libraries: =(.*)/;
-        foreach (split ':', $1) {
-            next if m/gcc/;
-            next unless -d $_;
-            s!/$!!;
-            push @paths, $_;
-        }
-    }
-    push @paths, map {$_ . $linux64} qw(/usr/local/lib /lib /usr/lib)
-        if $linux64;
-}
-
-my %defines =
-    (
-     usedevel => '',
-     optimize => '-g',
-     ld => 'cc',
-     (@paths ? (libpth => \@paths) : ()),
-    );
-
-# Needed for the 'ignore_versioned_solibs' emulation below.
-push @paths, qw(/usr/local/lib /lib /usr/lib)
-        unless $linux64;
+my $data = pre_getopts_processing;
+my @targets             = @{$data->{targets}};
+my %options             = %{$data->{options}};
+my $run_with_our_perl   = $data->{run_with_our_perl};
+my %defines             = %{$data->{defines}};
+my @paths               = @{$data->{paths}};
 
 my $rv = GetOptions(
     \%options,
@@ -543,79 +504,86 @@ elsif (!$expected_file_found) {
 }
 elsif (my $mod_opt = $options{module} || $options{'with-module'}
                || ($just_testing++, $options{'test-module'})) {
-  # Testing a cpan module? See if it will install
-  # First we need to install this perl somewhere
-  system_or_die('./installperl');
+    # Testing a cpan module? See if it will install
+    # First we need to install this perl somewhere
+    system_or_die('./installperl');
 
-  my @m = split(',', $mod_opt);
+    my @m = split(',', $mod_opt);
 
-  my $bdir = File::Temp::tempdir(
-    CLEANUP => 1,
-  ) or die $!;
+    my $bdir = File::Temp::tempdir(
+        CLEANUP => 1,
+    ) or die $!;
 
-  # Don't ever stop to ask the user for input
-  $ENV{AUTOMATED_TESTING} = 1;
-  $ENV{PERL_MM_USE_DEFAULT} = 1;
+    # Don't ever stop to ask the user for input
+    $ENV{AUTOMATED_TESTING} = 1;
+    $ENV{PERL_MM_USE_DEFAULT} = 1;
 
-  # Don't let these interfere with our cpan installs
-  delete $ENV{PERL_MB_OPT};
-  delete $ENV{PERL_MM_OPT};
+    # Don't let these interfere with our cpan installs
+    delete $ENV{PERL_MB_OPT};
+    delete $ENV{PERL_MM_OPT};
 
-  # Make sure we load up our CPAN::MyConfig and then
-  # override the build_dir so we have a fresh one
-  # every build
-  my $cdir = $options{'cpan-config-dir'}
-          || File::Spec->catfile($ENV{HOME},".cpan");
+    # Make sure we load up our CPAN::MyConfig and then
+    # override the build_dir so we have a fresh one
+    # every build
+    my $cdir = $options{'cpan-config-dir'}
+        || File::Spec->catfile($ENV{HOME},".cpan");
 
-  my @cpanshell = (
-    "$prefix/bin/perl",
-    "-I", "$cdir",
-    "-MCPAN::MyConfig",
-    "-MCPAN",
-    "-e","\$CPAN::Config->{build_dir}=q{$bdir};",
-    "-e",
-  );
+    my @cpanshell = (
+        "$prefix/bin/perl",
+        "-I", "$cdir",
+        "-MCPAN::MyConfig",
+        "-MCPAN",
+        "-e","\$CPAN::Config->{build_dir}=q{$bdir};",
+        "-e",
+    );
 
-  for (@m) {
-    s/-/::/g if /-/ and !m|/|;
-  }
-  my $install = join ",", map { "'$_'" } @m;
-  if ($just_testing) {
-    $install = "test($install)";
-  }
-  elsif ($options{'no-module-tests'}) {
-    $install = "notest('install',$install)";
-  }
-  else {
-    $install = "install($install)";
-  }
-  my $last = $m[-1];
-  my $status_method = $just_testing ? 'test' : 'uptodate';
-  my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
-
-  if ($options{module} || $options{'test-module'}) {
-    say "UUU: arguments in case of 'module' or 'test-module':";
-    say "UUU:   cpanshell:     ", join(' ' => @cpanshell);
-    say "UUU:   shell command: $shellcmd";
-    run_report_and_exit(\%options, @cpanshell, $shellcmd);
-  }
-  else {
-    my $ret = run_with_options({setprgp => $options{setpgrp},
-                                timeout => $options{timeout},
-                               }, @cpanshell, $shellcmd);
-    $ret &= 0xff if $options{crash};
-
-    # Failed? Give up
-    if ($ret) {
-      report_and_exit( {
-        good => !$ret,
-        pass => 'zero exit from',
-        fail => 'non-zero exit from',
-        description => "@_",
-        options => \%options,
-      } );
+    for (@m) {
+        s/-/::/g if /-/ and !m|/|;
     }
-  }
+    my $install = join ",", map { "'$_'" } @m;
+    if ($just_testing) {
+        $install = "test($install)";
+    }
+    elsif ($options{'no-module-tests'}) {
+        $install = "notest('install',$install)";
+    }
+    else {
+        $install = "install($install)";
+    }
+    my $last = $m[-1];
+    my $status_method = $just_testing ? 'test' : 'uptodate';
+    my $shellcmd = "$install; die unless CPAN::Shell->expand(Module => '$last')->$status_method;";
+
+    if ($options{module} || $options{'test-module'}) {
+        say "UUU: arguments in case of 'module' or 'test-module':";
+        say "UUU:   cpanshell:     ", join(' ' => @cpanshell);
+        say "UUU:   shell command: $shellcmd";
+        run_report_and_exit(\%options, @cpanshell, $shellcmd);
+    }
+    else {
+        my $ret = run_with_options(
+            {
+                setprgp => $options{setpgrp},
+                timeout => $options{timeout},
+            },
+            @cpanshell,
+            $shellcmd
+        );
+        $ret &= 0xff if $options{crash};
+
+        # Failed? Give up
+        if ($ret) {
+            report_and_exit(
+                {
+                    good => !$ret,
+                    pass => 'zero exit from',
+                    fail => 'non-zero exit from',
+                    description => "@_",
+                    options => \%options,
+                }
+            );
+        }
+    }
 }
 
 match_and_exit($real_target, [@ARGV], $match) if $match;

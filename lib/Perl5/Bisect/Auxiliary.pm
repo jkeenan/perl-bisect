@@ -31,6 +31,7 @@ require Exporter;
     match_and_exit
     report_and_exit
     run_report_and_exit
+    pre_getopts_processing
     prepare_one_build
 |);
 
@@ -152,7 +153,6 @@ sub system_or_die {
     system($command) and croak_255("'$command' failed, \$!=$!, \$?=$?");
 }
 
-
 sub run_with_options {
     my $options = shift;
     my $name = $options->{name};
@@ -222,9 +222,9 @@ sub extract_from_file {
     my ($file, $rx, $default) = @_;
     my $fh = open_or_die($file);
     while (<$fh>) {
-	my @got = $_ =~ $rx;
-	return wantarray ? @got : $got[0]
-	    if @got;
+        my @got = $_ =~ $rx;
+        return wantarray ? @got : $got[0]
+            if @got;
     }
     return $default if defined $default;
     return;
@@ -644,6 +644,94 @@ sub run_report_and_exit {
         description => "@_",
         options => $options,
     } );
+}
+
+=head2 C<pre_getopts_processing()>
+
+=over 4
+
+=item * Purpose
+
+Handle what's needed before we call C<Getopts::Long::GetOptions()> to process
+arguments passed from the bisector to the runner's command-line.
+
+=item * Arguments
+
+    my $data = pre_getopts_processing;
+
+None.
+
+=item * Return Value
+
+Reference to a hash with these 4 elements:
+
+    targets (array ref)
+    options (hash ref)
+    run_with_our_perl (compiled regex)
+    defines (hash ref)
+    paths (array ref)
+
+=item * Comment
+
+=back
+
+=cut
+
+sub pre_getopts_processing {
+    my @targets =
+        qw(none config.sh config.h miniperl lib/Config.pm Fcntl perl test_prep);
+
+    my %options = (
+         'expect-pass' => 1,
+         clean => 1, # mostly for debugging this
+    );
+
+    # We accept #!./miniperl and #!./perl
+    # We don't accept #!miniperl and #!perl as their intent is ambiguous
+    my $run_with_our_perl = qr{\A\#!(\./(?:mini)?perl)\b};
+
+    my $linux64 = `uname -sm` eq "Linux x86_64\n" ? '64' : '';
+
+    my @paths;
+
+    if ($^O eq 'linux') {
+        # This is the search logic for a multi-arch library layout
+        # added to linux.sh in commits 40f026236b9959b7 and dcffd848632af2c7.
+        my $gcc = -x '/usr/bin/gcc' ? '/usr/bin/gcc' : 'gcc';
+
+        foreach (`$gcc -print-search-dirs`) {
+            next unless /^libraries: =(.*)/;
+            foreach (split ':', $1) {
+                next if m/gcc/;
+                next unless -d $_;
+                s!/$!!;
+                push @paths, $_;
+            }
+        }
+        push @paths, map {$_ . $linux64} qw(/usr/local/lib /lib /usr/lib)
+            if $linux64;
+    }
+
+    my %defines = (
+         usedevel   => '',
+         optimize   => '-g',
+         ld         => 'cc',
+         (@paths ? (libpth => \@paths) : ()),
+    );
+
+    # Needed for the 'ignore_versioned_solibs' emulation below.
+    push @paths, qw(/usr/local/lib /lib /usr/lib)
+        unless $linux64;
+
+    my %data = (
+        targets             => \@targets,
+        options             => \%options,
+        run_with_our_perl   => $run_with_our_perl,
+        defines             => \%defines,
+        paths               => \@paths,
+    );
+
+    return \%data;
 }
 
 sub prepare_one_build {
