@@ -161,6 +161,7 @@ if (defined $target && $target =~ /\.t\z/) {
     unless ($target =~ s!\At/!!) {
         $target = "../$target";
     }
+    # AFAICT this is the last place in the runner where we assign to @ARGV
     @ARGV = ('sh', '-c', "cd t && $aggressive_apple_security./perl TEST " . quotemeta $target);
     $target = 'test_prep';
 }
